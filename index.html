@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>国富计算器</title>
+    <style>
+        :root{--nav-height:56px;--bg:#f7f3ee;--accent:#d4c5a1}
+        html,body{height:100%;margin:0;padding:0;background:var(--bg);font-family: "SimSun", system-ui, sans-serif;color:#2f2f2f}
+        .topbar{height:var(--nav-height);display:flex;align-items:center;justify-content:center;background:linear-gradient(0deg,#e6dcc8,#d4c5a1);box-shadow:0 1px 3px rgba(0,0,0,.08);position:fixed;top:0;left:0;right:0;z-index:20}
+        .topbar h1{font-size:16px;margin:0}
+        .container{position:fixed;top:var(--nav-height);left:0;right:0;bottom:var(--nav-height);overflow:auto;-webkit-overflow-scrolling:touch;padding:10px}
+        section.module{display:none}
+        section.module.active{display:block}
+        .nav{height:var(--nav-height);position:fixed;left:0;right:0;bottom:0;background:linear-gradient(180deg,#e6dcc8,#d4c5a1);display:flex;align-items:center;justify-content:space-around;box-shadow:0 -1px 3px rgba(0,0,0,.08);z-index:30}
+        .nav button{background:none;border:none;padding:6px 8px;color:#5a4631;font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;width:20%;height:100%;cursor:pointer}
+        .nav button.active{background:rgba(0,0,0,0.03);font-weight:700}
+        .nav button span{font-size:12px;margin-top:4px}
+        @media (max-width:420px){.topbar h1{font-size:14px}.nav button{font-size:12px}}
+        /* 模块容器内样式前缀化将在各模块内定义，以避免冲突 */
+    </style>
+    </head>
+<body>
+    <div class="topbar"><h1>国富计算器</h1></div>
+    <div class="container">
+        <!-- 挂轮计算（gljsq.html 内联并前缀 id） -->
+        <section id="gl-module" class="module">
+            <style>
+                #gl-module{padding:6px}
+                #gl-module .calculator{display:inline-block;border:2px solid #4682b4;padding:20px;border-radius:10px;box-shadow:0 0 15px rgba(70,130,180,0.5);width:100%;background:#f0f8ff}
+                #gl-module input{width:80%;margin:5px;border:1px solid #4682b4;border-radius:5px;padding:5px;background:#e6e6fa}
+                #gl-module button{margin:5px;width:30%;background:#ff4500;color:#fff;border:none;border-radius:5px;padding:10px}
+                #gl-module button:hover{background:#ff6347}
+                #gl-module #gl-gearResult{margin-top:10px;font-weight:bold}
+            </style>
+            <div class="calculator">
+                <h2>陈国富的挂轮计算器</h2>
+                <input type="number" id="gl-toolTeeth" placeholder="刀具齿数">
+                <input type="number" id="gl-workpieceTeeth" placeholder="工件齿数">
+                <br>
+                <div style="display:flex;align-items:center;justify-content:center;margin:10px;">
+                    <input type="checkbox" id="gl-conditionCD">
+                    <label for="gl-conditionCD">启用 C + D = 120 条件</label>
+                </div>
+                <button id="gl-calcBtn">计算挂轮组合</button>
+                <div id="gl-gearResult">挂轮组合: </div>
+            </div>
+            <script>
+                function gl_calculateGears(){
+                    const toolTeeth = parseInt(document.getElementById('gl-toolTeeth').value);
+                    const workpieceTeeth = parseInt(document.getElementById('gl-workpieceTeeth').value);
+                    const conditionCD = document.getElementById('gl-conditionCD').checked;
+                    const out = document.getElementById('gl-gearResult');
+                    if (isNaN(toolTeeth) || isNaN(workpieceTeeth) || toolTeeth <= 0 || workpieceTeeth <= 0) { out.innerText='挂轮组合: 请输入有效齿数'; return; }
+                    const minTeeth = 20, maxTeeth = 99; const results=[];
+                    for(let A=minTeeth;A<=maxTeeth;A++)for(let B=minTeeth;B<=maxTeeth;B++)for(let C=minTeeth;C<=maxTeeth;C++)for(let D=minTeeth;D<=maxTeeth;D++){ const conditionCDValid = !conditionCD || (C + D === 120); if(conditionCDValid && (A/B)*(C/D)===toolTeeth/workpieceTeeth && A+B-C>25){ results.push({A,B,C,D}); } }
+                    if(results.length>0){ let table = '<table border="1" style="margin:auto;border-collapse:collapse;width:100%"><thead><tr><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead><tbody>'; results.forEach(r=>{table += `<tr><td>${r.A}</td><td>${r.B}</td><td>${r.C}</td><td>${r.D}</td></tr>`}); table += '</tbody></table>'; out.innerHTML = table; } else { out.innerText = '挂轮组合: 无符合条件的组合'; }
+                }
+                document.getElementById('gl-calcBtn').addEventListener('click', gl_calculateGears);
+            </script>
+        </section>
+
+        <!-- 交点计算（jdjsq.html 内联并前缀 id） -->
+        <section id="jd-module" class="module">
+            <style>
+                #jd-module{padding:6px}
+                #jd-module .container{max-width:480px;margin:0 auto;padding:16px}
+                #jd-module .section{background:linear-gradient(120deg,#ffe066,#f9c846);border:2px solid #d7263d;border-radius:12px;margin-bottom:12px;padding:12px}
+                #jd-module input[type=number]{width:60px;border:2px solid #1768ac;border-radius:6px;padding:2px 6px;margin:2px}
+                #jd-module button{background:linear-gradient(90deg,#d7263d,#1768ac);color:#fff;border:none;border-radius:6px;padding:10px 22px;margin-top:10px}
+                #jd-module .result{color:#1768ac;font-weight:bold;margin-top:10px}
+            </style>
+            <div class="container">
+                <h1 style="text-align:center">陈国富的交点计算器</h1>
+                <div class="section">
+                    <h2>两条直线交点</h2>
+                    <div>
+                        <label>直线1点1:</label> X <input id="jd-l1x1" type="number"> Y <input id="jd-l1y1" type="number"><br>
+                        <label>直线1点2:</label> X <input id="jd-l1x2" type="number"> Y <input id="jd-l1y2" type="number"><br>
+                        <label>直线2点1:</label> X <input id="jd-l2x1" type="number"> Y <input id="jd-l2y1" type="number"><br>
+                        <label>直线2点2:</label> X <input id="jd-l2x2" type="number"> Y <input id="jd-l2y2" type="number">
+                    </div>
+                    <button id="jd-calcLine">计算交点</button>
+                    <div class="result" id="jd-lineResult"></div>
+                </div>
+
+                <div class="section">
+                    <h2>两个圆交点</h2>
+                    <div>
+                        <label>圆1圆心:</label> X <input id="jd-c1x" type="number"> Y <input id="jd-c1y" type="number"> 半径 <input id="jd-c1r" type="number"><br>
+                        <label>圆2圆心:</label> X <input id="jd-c2x" type="number"> Y <input id="jd-c2y" type="number"> 半径 <input id="jd-c2r" type="number">
+                    </div>
+                    <button id="jd-calcCircle">计算交点</button>
+                    <div class="result" id="jd-circleResult"></div>
+                </div>
+
+                <div class="section">
+                    <h2>直线与圆交点</h2>
+                    <div>
+                        <label>直线点1:</label> X <input id="jd-lx1" type="number"> Y <input id="jd-ly1" type="number"><br>
+                        <label>直线点2:</label> X <input id="jd-lx2" type="number"> Y <input id="jd-ly2" type="number"><br>
+                        <label>圆心:</label> X <input id="jd-cx" type="number"> Y <input id="jd-cy" type="number"> 半径 <input id="jd-cr" type="number">
+                    </div>
+                    <button id="jd-calcLineCircle">计算交点</button>
+                    <div class="result" id="jd-lineCircleResult"></div>
+                </div>
+            </div>
+            <script>
+                function jd_calcLineIntersection(){
+                    let x1=parseFloat(document.getElementById('jd-l1x1').value);let y1=parseFloat(document.getElementById('jd-l1y1').value);
+                    let x2=parseFloat(document.getElementById('jd-l1x2').value);let y2=parseFloat(document.getElementById('jd-l1y2').value);
+                    let x3=parseFloat(document.getElementById('jd-l2x1').value);let y3=parseFloat(document.getElementById('jd-l2y1').value);
+                    let x4=parseFloat(document.getElementById('jd-l2x2').value);let y4=parseFloat(document.getElementById('jd-l2y2').value);
+                    let denom=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+                    const out=document.getElementById('jd-lineResult');
+                    if(denom===0){ out.innerText='两直线平行或重合，无交点'; return; }
+                    let px=((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))/denom;
+                    let py=((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4))/denom;
+                    out.innerText=`交点坐标: (${px.toFixed(3)}, ${py.toFixed(3)})`;
+                }
+                function jd_calcCircleIntersection(){
+                    let x0=parseFloat(document.getElementById('jd-c1x').value);let y0=parseFloat(document.getElementById('jd-c1y').value);let r0=parseFloat(document.getElementById('jd-c1r').value);
+                    let x1=parseFloat(document.getElementById('jd-c2x').value);let y1=parseFloat(document.getElementById('jd-c2y').value);let r1=parseFloat(document.getElementById('jd-c2r').value);
+                    const out=document.getElementById('jd-circleResult');
+                    let dx=x1-x0;let dy=y1-y0;let d=Math.sqrt(dx*dx+dy*dy);
+                    if(d>r0+r1||d<Math.abs(r0-r1)||d===0){ out.innerText='无交点'; return; }
+                    let a=(r0*r0-r1*r1+d*d)/(2*d); let h=Math.sqrt(r0*r0-a*a); let xm=x0+a*dx/d; let ym=y0+a*dy/d; let xs1=xm+h*dy/d; let ys1=ym-h*dx/d; let xs2=xm-h*dy/d; let ys2=ym+h*dx/d;
+                    if(d===r0+r1||d===Math.abs(r0-r1)){ out.innerText=`交点坐标: (${xs1.toFixed(3)}, ${ys1.toFixed(3)})`; } else { out.innerText=`交点坐标: (${xs1.toFixed(3)}, ${ys1.toFixed(3)}), (${xs2.toFixed(3)}, ${ys2.toFixed(3)})`; }
+                }
+                function jd_calcLineCircleIntersection(){
+                    let x1=parseFloat(document.getElementById('jd-lx1').value);let y1=parseFloat(document.getElementById('jd-ly1').value);
+                    let x2=parseFloat(document.getElementById('jd-lx2').value);let y2=parseFloat(document.getElementById('jd-ly2').value);
+                    let xc=parseFloat(document.getElementById('jd-cx').value);let yc=parseFloat(document.getElementById('jd-cy').value);let r=parseFloat(document.getElementById('jd-cr').value);
+                    const out=document.getElementById('jd-lineCircleResult');
+                    let dx=x2-x1;let dy=y2-y1;let fx=x1-xc;let fy=y1-yc;let a=dx*dx+dy*dy;let b=2*(fx*dx+fy*dy);let c=fx*fx+fy*fy-r*r;let discriminant=b*b-4*a*c; if(discriminant<0){ out.innerText='无交点'; return; }
+                    let t1=(-b+Math.sqrt(discriminant))/(2*a);let t2=(-b-Math.sqrt(discriminant))/(2*a); let points=[];
+                    if(discriminant===0){ let x=x1+t1*dx;let y=y1+t1*dy; points.push(`(${x.toFixed(3)}, ${y.toFixed(3)})`);} else { let xA=x1+t1*dx; let yA=y1+t1*dy; let xB=x1+t2*dx; let yB=y1+t2*dy; points.push(`(${xA.toFixed(3)}, ${yA.toFixed(3)})`); points.push(`(${xB.toFixed(3)}, ${yB.toFixed(3)})`); }
+                    out.innerText=`交点坐标: ${points.join(', ')}`;
+                }
+                document.getElementById('jd-calcLine').addEventListener('click', jd_calcLineIntersection);
+                document.getElementById('jd-calcCircle').addEventListener('click', jd_calcCircleIntersection);
+                document.getElementById('jd-calcLineCircle').addEventListener('click', jd_calcLineCircleIntersection);
+            </script>
+        </section>
+
+        <!-- 极坐标和角度计算（jzbjsq.html 内联并前缀 id） -->
+        <section id="jz-module" class="module">
+            <style>
+                #jz-module{padding:6px}
+                #jz-module .container{background:#fffacd;padding:20px;border-radius:8px;box-shadow:0 0 10px rgba(0,0,0,.1);width:100%;max-width:420px}
+                #jz-module input{width:100%;margin:5px 0;padding:10px;border:1px solid #d2b48c;border-radius:4px}
+                #jz-module button{width:100%;padding:10px;border:none;background:#8b4513;color:#fff;border-radius:4px}
+                #jz-module .result{margin-top:20px;text-align:center;font-weight:bold;color:#8b4513}
+            </style>
+            <div class="container">
+                <h2 style="text-align:center">陈国富的坐标和极坐标计算器</h2>
+                <div class="tab">
+                    <button class="tablinks active" data-target="jz-angle">坐标角度</button>
+                    <button class="tablinks" data-target="jz-polar">极坐标转直角</button>
+                </div>
+                <div id="jz-angle" class="tabcontent" style="display:block;margin-top:10px">
+                    <label for="jz-x">X:</label>
+                    <input type="number" id="jz-x" placeholder="输入X轴坐标值">
+                    <label for="jz-y">Y:</label>
+                    <input type="number" id="jz-y" placeholder="输入Y轴坐标值">
+                    <button id="jz-calcAngle">计算</button>
+                    <div class="result" id="jz-angleResult"></div>
+                </div>
+                <div id="jz-polar" class="tabcontent" style="display:none;margin-top:10px">
+                    <label for="jz-radius">极半径 (r):</label>
+                    <input type="number" id="jz-radius" placeholder="请输入极半径">
+                    <label for="jz-angle">角度 (度):</label>
+                    <input type="number" id="jz-angleInput" placeholder="请输入角度">
+                    <button id="jz-convert">计算</button>
+                    <div class="result" id="jz-polarResult"></div>
+                </div>
+            </div>
+            <script>
+                (function(){
+                    function openJzTab(target){ document.querySelectorAll('#jz-module .tabcontent').forEach(el=>el.style.display='none'); document.getElementById(target).style.display='block'; }
+                    document.querySelectorAll('#jz-module .tablinks').forEach(btn=>btn.addEventListener('click', function(){ document.querySelectorAll('#jz-module .tablinks').forEach(b=>b.classList.remove('active')); this.classList.add('active'); openJzTab(this.dataset.target); }));
+                    document.getElementById('jz-calcAngle').addEventListener('click', function(){ const x=parseFloat(document.getElementById('jz-x').value); const y=parseFloat(document.getElementById('jz-y').value); const out=document.getElementById('jz-angleResult'); if(isNaN(x)||isNaN(y)){ out.textContent='请输入完整的值.'; return;} let angle=Math.atan2(y,x)*(180/Math.PI); if(angle<0)angle+=360; const radius=Math.sqrt(x*x+y*y); out.textContent=`算出的角度是 ${angle.toFixed(3)}°，极半径是 ${radius.toFixed(3)}`; });
+                    document.getElementById('jz-convert').addEventListener('click', function(){ const r=parseFloat(document.getElementById('jz-radius').value); const deg=parseFloat(document.getElementById('jz-angleInput').value); const out=document.getElementById('jz-polarResult'); if(isNaN(r)||isNaN(deg)){ out.innerText='请输入有效的数值'; return;} const rad=deg*(Math.PI/180); const x=r*Math.cos(rad); const y=r*Math.sin(rad); out.innerText=`X: ${x.toFixed(3)}, Y: ${y.toFixed(3)}`; });
+                })();
+            </script>
+        </section>
+
+        <!-- 铣油线计算（原 index.html 内容，前缀 mill-） -->
+        <section id="mill-module" class="module">
+            <style>
+                #mill-module{padding:6px}
+                #mill-module .calculator{margin-top:10px;width:100%;max-width:400px;background:#fff8e1;border-radius:10px;box-shadow:0 4px 8px rgba(0,0,0,.12);padding:16px;border:1px solid #d4c5a1}
+                #mill-module input{width:100%;padding:10px;margin:6px 0;border:1px solid #d4c5a1;border-radius:5px;background:#f9f6f1}
+                #mill-module button{padding:10px;border-radius:5px;border:1px solid #d4c5a1;background:#e6d3b1}
+                #mill-module .result{margin-top:12px;font-size:16px;color:#5a4631;text-align:center}
+            </style>
+            <div class="calculator">
+                <h2 style="color:#5a4631;text-align:center">陈国富的铣油线计算器</h2>
+                <input type="number" id="mill-length" placeholder="输入刀具直径" />
+                <input type="number" id="mill-width" placeholder="输入要铣的圆弧半径" />
+                <input type="number" id="mill-height" placeholder="输入油线深度" />
+                <button id="mill-calc">计算</button>
+                <div class="result" id="mill-result"></div>
+            </div>
+            <script>
+                function mill_calculateSurfaceArea(){
+                    const length=parseFloat(document.getElementById('mill-length').value);
+                    const width=parseFloat(document.getElementById('mill-width').value);
+                    const height=parseFloat(document.getElementById('mill-height').value);
+                    const out=document.getElementById('mill-result');
+                    if(isNaN(length)||isNaN(width)||isNaN(height)){ out.innerText='请输入有效的数字'; return; }
+                    const dj=length/2; const bl2=width*width-((width-height)*(width-height));
+                    const bl3=height/(dj-Math.sqrt(dj*dj-bl2)); const bl4=Math.sqrt(bl2)*2; const surfaceArea=Math.asin(bl3)*(180/Math.PI);
+                    out.innerText = `机床搬到 ： ${surfaceArea.toFixed(4)} 度 \n 口宽为 ${bl4.toFixed(4)} mm`;
+                }
+                document.getElementById('mill-calc').addEventListener('click', mill_calculateSurfaceArea);
+            </script>
+        </section>
+
+        <!-- 电子图版内联模块（已做 id/函数前缀化以避免冲突） -->
+        <section id="dztb-module" class="module">
+            <style>
+            /* Scoped styles for dztb module */
+            #dztb-module { padding:6px }
+            #dztb-module .dztb-root { font-family: 'Times New Roman', serif; margin:0; padding:10px; background-color:#f5f1e6; color:#5a4a42 }
+            #dztb-module .dztb-container { display:flex; flex-direction:column; max-width:100% }
+            #dztb-module .dztb-tab-container { display:flex; flex-direction:column; background-color:#e8d8c0; border-radius:5px; margin-bottom:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1); border:1px solid #c4b6a0 }
+            #dztb-module .dztb-tab-header { display:flex; border-bottom:1px solid #c4b6a0; background:linear-gradient(to bottom,#e8d8c0,#d9c7a7) }
+            #dztb-module .dztb-tab-button { padding:10px 15px; background:transparent; border:none; cursor:pointer; font-size:14px; flex:1; text-align:center; color:#5a4a42; border-right:1px solid #c4b6a0; transition:all .3s; }
+            #dztb-module .dztb-tab-button:last-child{ border-right:none }
+            #dztb-module .dztb-tab-button:hover{ background-color:rgba(0,0,0,0.05) }
+            #dztb-module .dztb-tab-button.active{ background-color:#d9c7a7; border-bottom:2px solid #8b7d65; font-weight:bold }
+            #dztb-module .dztb-tab-content{ padding:10px; display:none; background-color:#f0e6d2 }
+            #dztb-module .dztb-tab-content.active{ display:block }
+            #dztb-module .dztb-input-group{ margin-bottom:10px }
+            #dztb-module .dztb-input-group h3{ margin-top:0; margin-bottom:5px; font-size:16px; color:#5a4a42; border-bottom:1px solid #c4b6a0; padding-bottom:5px }
+            #dztb-module .dztb-input-row{ display:flex; flex-wrap:wrap; margin-bottom:5px; align-items:center }
+            #dztb-module .dztb-input-row label{ width:60px; font-size:14px; color:#5a4a42 }
+            #dztb-module .dztb-input-row input, #dztb-module .dztb-input-row select{ flex:1; padding:5px; border:1px solid #c4b6a0; border-radius:3px; min-width:50px; background-color:#f9f5eb; color:#5a4a42 }
+            #dztb-module button{ background-color:#8b7d65; color:#f9f5eb; border:none; padding:8px 12px; border-radius:3px; cursor:pointer; font-size:14px; margin-right:5px; margin-bottom:5px }
+            #dztb-module button:hover{ background-color:#756a56 }
+            #dztb-module .dztb-canvas-container{ position:relative; width:100%; height:300px; background-color:#f9f5eb; border-radius:5px; margin-bottom:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1); overflow:hidden; border:1px solid #c4b6a0; touch-action:none }
+            #dztb-module canvas{ position:absolute; top:0; left:0 }
+            #dztb-module .dztb-results, #dztb-module .dztb-features, #dztb-module .dztb-measurements{ background-color:#f0e6d2; padding:10px; border-radius:5px; margin-bottom:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1); border:1px solid #c4b6a0 }
+            #dztb-module .dztb-results h3, #dztb-module .dztb-features h3, #dztb-module .dztb-measurements h3{ margin-top:0; font-size:16px; color:#5a4a42; border-bottom:1px solid #c4b6a0; padding-bottom:5px }
+            #dztb-module .dztb-feature-item{ display:flex; align-items:center; margin-bottom:5px }
+            #dztb-module .dztb-feature-item input{ margin-right:10px }
+            #dztb-module .dztb-coordinates{ font-size:14px; margin-bottom:5px; color:#5a4a42; padding-left:5px; border-left:3px solid #c4b6a0 }
+            #dztb-module .dztb-zoom-controls{ display:flex; justify-content:center; margin-bottom:10px }
+            #dztb-module .dztb-zoom-controls button{ width:40px; height:40px; font-size:18px }
+            #dztb-module .dztb-line-width-control{ display:flex; align-items:center; margin-bottom:5px }
+            #dztb-module .dztb-intersection-label{ position:absolute; background-color:white; padding:2px 5px; border-radius:3px; font-size:12px; color:red; transform:translate(-50%,-50%); pointer-events:none }
+            </style>
+
+            <div class="dztb-root">
+            <div class="dztb-container">
+                <h1 style="color:#5a4a42;text-align:center;font-family:'Times New Roman',serif;">天海新产品专用算点工具</h1>
+                <div class="dztb-tab-container">
+                    <div class="dztb-tab-header">
+                        <button class="dztb-tab-button dztb-active" onclick="dztb_openTab(event,'dztb-line-tab')">直线</button>
+                        <button class="dztb-tab-button" onclick="dztb_openTab(event,'dztb-circle-tab')">圆</button>
+                        <button class="dztb-tab-button" onclick="dztb_openTab(event,'dztb-parallel-tab')">平行线</button>
+                        <button class="dztb-tab-button" onclick="dztb_openTab(event,'dztb-angle-tab')">角度</button>
+                        <button class="dztb-tab-button" onclick="dztb_openTab(event,'dztb-convert-tab')">转直线</button>
+                        <button class="dztb-tab-button" onclick="dztb_openTab(event,'dztb-measure-tab')">测量</button>
+                        <button class="dztb-tab-button" onclick="dztb_openTab(event,'dztb-edit-tab')">编辑</button>
+                    </div>
+
+                    <div id="dztb-line-tab" class="dztb-tab-content dztb-active">
+                        <div class="dztb-input-group">
+                            <h3>直线</h3>
+                            <div class="dztb-input-row"><label>点1 X:</label><input type="number" id="dztb-line-x1" placeholder="X坐标"></div>
+                            <div class="dztb-input-row"><label>点1 Y:</label><input type="number" id="dztb-line-y1" placeholder="Y坐标"></div>
+                            <div class="dztb-input-row"><label>点2 X:</label><input type="number" id="dztb-line-x2" placeholder="X坐标"></div>
+                            <div class="dztb-input-row"><label>点2 Y:</label><input type="number" id="dztb-line-y2" placeholder="Y坐标"></div>
+                            <div class="dztb-line-width-control"><label>线宽:</label><input type="number" id="dztb-line-width" placeholder="线宽" min="1" max="10" value="10"></div>
+                            <button onclick="dztb_addLine()">添加直线</button>
+                        </div>
+                    </div>
+
+                    <div id="dztb-circle-tab" class="dztb-tab-content">
+                        <div class="dztb-input-group">
+                            <h3>圆</h3>
+                            <div class="dztb-input-row"><label>圆心 X:</label><input type="number" id="dztb-circle-x" placeholder="X坐标"></div>
+                            <div class="dztb-input-row"><label>圆心 Y:</label><input type="number" id="dztb-circle-y" placeholder="Y坐标"></div>
+                            <div class="dztb-input-row"><label>半径:</label><input type="number" id="dztb-circle-r" placeholder="半径"></div>
+                            <div class="dztb-line-width-control"><label>线宽:</label><input type="number" id="dztb-circle-width" placeholder="线宽" min="1" max="10" value="10"></div>
+                            <button onclick="dztb_addCircle()">添加圆</button>
+                        </div>
+                    </div>
+
+                    <div id="dztb-parallel-tab" class="dztb-tab-content">
+                        <div class="dztb-input-group">
+                            <h3>平行线</h3>
+                            <div class="dztb-input-row"><label>基准线:</label><select id="dztb-parallel-line"></select></div>
+                            <div class="dztb-input-row"><label>距离:</label><input type="number" id="dztb-parallel-distance" placeholder="距离"></div>
+                            <div class="dztb-line-width-control"><label>线宽:</label><input type="number" id="dztb-parallel-width" placeholder="线宽" min="1" max="10" value="10"></div>
+                            <button onclick="dztb_addParallelLine()">添加平行线</button>
+                        </div>
+                    </div>
+
+                    <div id="dztb-angle-tab" class="dztb-tab-content">
+                        <div class="dztb-input-group">
+                            <h3>角度线</h3>
+                            <div class="dztb-input-row"><label>顶点 X:</label><input type="number" id="dztb-angle-x" placeholder="X坐标"></div>
+                            <div class="dztb-input-row"><label>顶点 Y:</label><input type="number" id="dztb-angle-y" placeholder="Y坐标"></div>
+                            <div class="dztb-input-row"><label>基准线:</label><select id="dztb-angle-line"></select></div>
+                            <div class="dztb-input-row"><label>角度:</label><input type="number" id="dztb-angle-value" placeholder="角度(度)"></div>
+                            <div class="dztb-line-width-control"><label>线宽:</label><input type="number" id="dztb-angle-width" placeholder="线宽" min="1" max="10" value="10"></div>
+                            <button onclick="dztb_addAngleLine()">添加角度线</button>
+                        </div>
+                    </div>
+
+                    <div id="dztb-convert-tab" class="dztb-tab-content">
+                        <div class="dztb-input-group">
+                            <h3>线段转直线</h3>
+                            <div class="dztb-input-row"><label>选择线段:</label><select id="dztb-convert-line"></select></div>
+                            <button onclick="dztb_convertToLine()">转换为直线</button>
+                        </div>
+                    </div>
+
+                    <div id="dztb-measure-tab" class="dztb-tab-content">
+                        <div class="dztb-input-group">
+                            <h3>测量工具</h3>
+                            <div class="dztb-input-row"><label>选择项1:</label><select id="dztb-measure-item1"></select></div>
+                            <div class="dztb-input-row"><label>选择项2:</label><select id="dztb-measure-item2"></select></div>
+                            <button onclick="dztb_measureItems()">测量</button>
+                            <div id="dztb-measure-result" class="dztb-coordinates" style="margin-top:10px;"></div>
+                        </div>
+                    </div>
+
+                    <div id="dztb-edit-tab" class="dztb-tab-content">
+                        <div class="dztb-input-group">
+                            <h3>编辑特征</h3>
+                            <div class="dztb-input-row"><label>选择特征:</label><select id="dztb-edit-feature"></select></div>
+                            <div id="dztb-edit-line-controls">
+                                <div class="dztb-input-row"><label>点1 X:</label><input type="number" id="dztb-edit-x1" placeholder="X坐标"></div>
+                                <div class="dztb-input-row"><label>点1 Y:</label><input type="number" id="dztb-edit-y1" placeholder="Y坐标"></div>
+                                <div class="dztb-input-row"><label>点2 X:</label><input type="number" id="dztb-edit-x2" placeholder="X坐标"></div>
+                                <div class="dztb-input-row"><label>点2 Y:</label><input type="number" id="dztb-edit-y2" placeholder="X坐标"></div>
+                            </div>
+                            <div id="dztb-edit-circle-controls" style="display:none;"><div class="dztb-input-row"><label>圆心 X:</label><input type="number" id="dztb-edit-cx" placeholder="X坐标"></div><div class="dztb-input-row"><label>圆心 Y:</label><input type="number" id="dztb-edit-cy" placeholder="Y坐标"></div><div class="dztb-input-row"><label>半径:</label><input type="number" id="dztb-edit-cr" placeholder="半径"></div></div>
+                            <div class="dztb-line-width-control"><label>线宽:</label><input type="number" id="dztb-edit-width" placeholder="线宽" min="1" max="10"></div>
+                            <button onclick="dztb_updateFeature()">更新特征</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dztb-zoom-controls"><button onclick="dztb_zoomOut()">-</button><button onclick="dztb_zoomIn()">+</button><button onclick="dztb_zoomFit()">适应</button><button onclick="dztb_zoomReset()">重置</button></div>
+
+                <div class="dztb-canvas-container"><canvas id="dztb-drawingCanvas"></canvas></div>
+
+                <div class="dztb-results"><h3>交点坐标</h3><div id="dztb-intersections"></div></div>
+                <div class="dztb-features"><h3>特征列表</h3><div id="dztb-feature-list"></div></div>
+                <div class="dztb-measurements"><h3>测量结果</h3><div id="dztb-measurement-results"></div></div>
+            </div>
+            </div>
+
+            <script>
+            // dztb: namespaced variables
+            (function(){
+                const canvas = document.getElementById('dztb-drawingCanvas');
+                const ctx = canvas.getContext('2d');
+                let features = [];
+                let intersections = [];
+                let zoom = 1.0;
+                let panX = 0;
+                let panY = 0;
+                let isDragging = false;
+                let lastX = 0;
+                let lastY = 0;
+                let intersectionLabels = [];
+                let measurements = [];
+
+                window.dztb_openTab = function(evt, tabName){
+                    const tabContents = document.querySelectorAll('#dztb-module .dztb-tab-content');
+                    tabContents.forEach(tc=>tc.classList.remove('active'));
+                    const tabButtons = document.querySelectorAll('#dztb-module .dztb-tab-button');
+                    tabButtons.forEach(tb=>tb.classList.remove('active'));
+                    document.getElementById(tabName).classList.add('active');
+                    evt.currentTarget.classList.add('active');
+                    setTimeout(()=>{ const inputs = document.querySelectorAll(`#${tabName} input, #${tabName} select`); if(inputs.length>0) inputs[0].focus(); },50);
+                };
+
+                function resizeCanvas(){ const container = document.querySelector('#dztb-module .dztb-canvas-container'); canvas.width = container.offsetWidth; canvas.height = container.offsetHeight; drawAll(); }
+                window.addEventListener('resize', resizeCanvas);
+
+                function setupInputEvents(){ const inputs = document.querySelectorAll('#dztb-module input[type="number"], #dztb-module input[type="text"], #dztb-module select'); inputs.forEach(input=>{ input.addEventListener('click', function(){ this.focus(); }); input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ const activeTab = document.querySelector('#dztb-module .dztb-tab-content.active'); if(activeTab.id==='dztb-line-tab'){ addLine(); } else if(activeTab.id==='dztb-circle-tab'){ addCircle(); } else if(activeTab.id==='dztb-parallel-tab'){ addParallelLine(); } else if(activeTab.id==='dztb-angle-tab'){ addAngleLine(); } else if(activeTab.id==='dztb-convert-tab'){ convertToLine(); } else if(activeTab.id==='dztb-measure-tab'){ measureItems(); } else if(activeTab.id==='dztb-edit-tab'){ updateFeature(); } } }); }); }
+
+                function drawAll(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.save(); const centerX=canvas.width/2; const centerY=canvas.height/2; ctx.translate(centerX+panX, centerY+panY); ctx.scale(zoom,zoom); ctx.translate(-centerX,-centerY); drawAxes(); features.forEach((feature,index)=>{ const cb = document.getElementById(`dztb-feature-${index}`); if(!cb || cb.checked) drawFeature(feature); }); drawIntersections(); ctx.restore(); }
+
+                function drawAxes(){ const centerX=canvas.width/2; const centerY=canvas.height/2; ctx.strokeStyle='#ccc'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,centerY); ctx.lineTo(canvas.width,centerY); ctx.stroke(); ctx.beginPath(); ctx.moveTo(centerX,0); ctx.lineTo(centerX,canvas.height); ctx.stroke(); ctx.fillStyle='#999'; ctx.font='10px Arial'; ctx.textAlign='center'; for(let x=-10;x<=10;x++){ if(x===0) continue; const screenX=centerX + x*20; ctx.beginPath(); ctx.moveTo(screenX,centerY-5); ctx.lineTo(screenX,centerY+5); ctx.stroke(); ctx.fillText(x.toString(), screenX, centerY+20); } ctx.textAlign='right'; for(let y=-10;y<=10;y++){ if(y===0) continue; const screenY=centerY - y*20; ctx.beginPath(); ctx.moveTo(centerX-5,screenY); ctx.lineTo(centerX+5,screenY); ctx.stroke(); ctx.fillText(y.toString(), centerX-10, screenY+5); } ctx.fillStyle='#000'; ctx.fillText('0', centerX-10, centerY+15); }
+
+                function drawFeature(feature){ const centerX=canvas.width/2; const centerY=canvas.height/2; ctx.strokeStyle = feature.color; ctx.lineWidth = feature.lineWidth || 2; if(feature.type==='line'){ const x1=centerX+feature.x1*20; const y1=centerY-feature.y1*20; const x2=centerX+feature.x2*20; const y2=centerY-feature.y2*20; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); } else if(feature.type==='circle'){ const x=centerX+feature.x*20; const y=centerY-feature.y*20; const r=feature.r*20; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke(); } }
+
+                function drawIntersections(){ const centerX=canvas.width/2; const centerY=canvas.height/2; intersectionLabels.forEach(label=>{ if(label.parentNode) label.parentNode.removeChild(label); }); intersectionLabels=[]; ctx.fillStyle='red'; intersections.forEach((point,index)=>{ const x=centerX+point.x*20; const y=centerY-point.y*20; ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill(); const label=document.createElement('div'); label.className='dztb-intersection-label'; label.textContent=(index+1).toString(); label.style.left=`${x+10}px`; label.style.top=`${y-10}px`; document.querySelector('#dztb-module .dztb-canvas-container').appendChild(label); intersectionLabels.push(label); }); }
+
+                function updateFeatureList(){ const featureList=document.getElementById('dztb-feature-list'); featureList.innerHTML=''; const parallelLineSelect=document.getElementById('dztb-parallel-line'); const angleLineSelect=document.getElementById('dztb-angle-line'); const convertLineSelect=document.getElementById('dztb-convert-line'); const measureItem1Select=document.getElementById('dztb-measure-item1'); const measureItem2Select=document.getElementById('dztb-measure-item2'); const editFeatureSelect=document.getElementById('dztb-edit-feature'); parallelLineSelect.innerHTML=''; angleLineSelect.innerHTML=''; convertLineSelect.innerHTML=''; measureItem1Select.innerHTML=''; measureItem2Select.innerHTML=''; editFeatureSelect.innerHTML=''; const noneOption=document.createElement('option'); noneOption.value=-1; noneOption.textContent='无'; measureItem1Select.appendChild(noneOption.cloneNode(true)); measureItem2Select.appendChild(noneOption.cloneNode(true)); convertLineSelect.appendChild(noneOption.cloneNode(true)); features.forEach((feature,index)=>{ if(feature.type==='line'){ const div=document.createElement('div'); div.className='dztb-feature-item'; const checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.id=`dztb-feature-${index}`; checkbox.className='dztb-feature-checkbox'; checkbox.checked=true; checkbox.onchange=function(){ drawAll(); calculateIntersections(); }; const label=document.createElement('label'); label.htmlFor=`dztb-feature-${index}`; label.textContent=`直线 ${index}: (${feature.x1.toFixed(2)}, ${feature.y1.toFixed(2)}) - (${feature.x2.toFixed(2)}, ${feature.y2.toFixed(2)})`; const editLink=document.createElement('span'); editLink.className='dztb-edit-feature'; editLink.textContent='编辑'; editLink.onclick=function(){ openEditTab(index); }; div.appendChild(checkbox); div.appendChild(label); div.appendChild(editLink); featureList.appendChild(div); const option1=document.createElement('option'); option1.value=index; option1.textContent=`直线 ${index}`; parallelLineSelect.appendChild(option1.cloneNode(true)); angleLineSelect.appendChild(option1.cloneNode(true)); convertLineSelect.appendChild(option1.cloneNode(true)); editFeatureSelect.appendChild(option1.cloneNode(true)); const measureOption1=document.createElement('option'); measureOption1.value=index; measureOption1.textContent=`直线 ${index}`; measureItem1Select.appendChild(measureOption1.cloneNode(true)); measureItem2Select.appendChild(measureOption1.cloneNode(true)); } else if(feature.type==='circle'){ const div=document.createElement('div'); div.className='dztb-feature-item'; const checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.id=`dztb-feature-${index}`; checkbox.className='dztb-feature-checkbox'; checkbox.checked=true; checkbox.onchange=function(){ drawAll(); calculateIntersections(); }; const label=document.createElement('label'); label.htmlFor=`dztb-feature-${index}`; label.textContent=`圆 ${index}: 圆心(${feature.x.toFixed(2)}, ${feature.y.toFixed(2)}), 半径 ${feature.r.toFixed(2)}`; const editLink=document.createElement('span'); editLink.className='dztb-edit-feature'; editLink.textContent='编辑'; editLink.onclick=function(){ openEditTab(index); }; div.appendChild(checkbox); div.appendChild(label); div.appendChild(editLink); featureList.appendChild(div); const option=document.createElement('option'); option.value=index; option.textContent=`圆 ${index}`; editFeatureSelect.appendChild(option); } }); intersections.forEach((point,index)=>{ const option1=document.createElement('option'); option1.value=`point-${index}`; option1.textContent=`交点 ${index+1}: (${point.x.toFixed(2)}, ${point.y.toFixed(2)})`; measureItem1Select.appendChild(option1.cloneNode(true)); measureItem2Select.appendChild(option1.cloneNode(true)); }); }
+
+                function openEditTab(index){ const tabContents=document.querySelectorAll('#dztb-module .dztb-tab-content'); tabContents.forEach(tc=>tc.classList.remove('active')); const tabButtons=document.querySelectorAll('#dztb-module .dztb-tab-button'); tabButtons.forEach(tb=>tb.classList.remove('active')); document.getElementById('dztb-edit-tab').classList.add('active'); document.querySelector('#dztb-module .dztb-tab-button[onclick*="dztb-edit-tab"]').classList.add('active'); const feature=features[index]; document.getElementById('dztb-edit-feature').value=index; document.getElementById('dztb-edit-width').value=feature.lineWidth||2; if(feature.type==='line'){ document.getElementById('dztb-edit-line-controls').style.display='block'; document.getElementById('dztb-edit-circle-controls').style.display='none'; document.getElementById('dztb-edit-x1').value=feature.x1; document.getElementById('dztb-edit-y1').value=feature.y1; document.getElementById('dztb-edit-x2').value=feature.x2; document.getElementById('dztb-edit-y2').value=feature.y2; } else if(feature.type==='circle'){ document.getElementById('dztb-edit-line-controls').style.display='none'; document.getElementById('dztb-edit-circle-controls').style.display='block'; document.getElementById('dztb-edit-cx').value=feature.x; document.getElementById('dztb-edit-cy').value=feature.y; document.getElementById('dztb-edit-cr').value=feature.r; } }
+
+                function updateFeature(){ const index=parseInt(document.getElementById('dztb-edit-feature').value); const lineWidth=parseFloat(document.getElementById('dztb-edit-width').value); if(isNaN(index)||index<0||index>=features.length){ alert('请选择有效的特征'); return; } const feature=features[index]; if(feature.type==='line'){ const x1=parseFloat(document.getElementById('dztb-edit-x1').value); const y1=parseFloat(document.getElementById('dztb-edit-y1').value); const x2=parseFloat(document.getElementById('dztb-edit-x2').value); const y2=parseFloat(document.getElementById('dztb-edit-y2').value); if(isNaN(x1)||isNaN(y1)||isNaN(x2)||isNaN(y2)){ alert('请输入有效的坐标值'); return; } feature.x1=x1; feature.y1=y1; feature.x2=x2; feature.y2=y2; } else if(feature.type==='circle'){ const x=parseFloat(document.getElementById('dztb-edit-cx').value); const y=parseFloat(document.getElementById('dztb-edit-cy').value); const r=parseFloat(document.getElementById('dztb-edit-cr').value); if(isNaN(x)||isNaN(y)||isNaN(r)||r<=0){ alert('请输入有效的圆心坐标和半径'); return; } feature.x=x; feature.y=y; feature.r=r; } feature.lineWidth=lineWidth; updateFeatureList(); calculateIntersections(); drawAll(); alert('特征已更新'); }
+
+                function addLine(){ const x1=parseFloat(document.getElementById('dztb-line-x1').value); const y1=parseFloat(document.getElementById('dztb-line-y1').value); const x2=parseFloat(document.getElementById('dztb-line-x2').value); const y2=parseFloat(document.getElementById('dztb-line-y2').value); const lineWidth=parseFloat(document.getElementById('dztb-line-width').value); if(isNaN(x1)||isNaN(y1)||isNaN(x2)||isNaN(y2)){ alert('请输入有效的坐标值'); return; } const feature={ type:'line', x1,y1,x2,y2, lineWidth, color: dztb_getRandomColor(), id: features.length }; features.push(feature); updateFeatureList(); calculateIntersections(); adjustZoom(); drawAll(); document.getElementById('dztb-line-x1').value=''; document.getElementById('dztb-line-y1').value=''; document.getElementById('dztb-line-x2').value=''; document.getElementById('dztb-line-y2').value=''; }
+
+                function addCircle(){ const x=parseFloat(document.getElementById('dztb-circle-x').value); const y=parseFloat(document.getElementById('dztb-circle-y').value); const r=parseFloat(document.getElementById('dztb-circle-r').value); const lineWidth=parseFloat(document.getElementById('dztb-circle-width').value); if(isNaN(x)||isNaN(y)||isNaN(r)||r<=0){ alert('请输入有效的圆心坐标和半径'); return; } const feature={ type:'circle', x,y,r, lineWidth, color: dztb_getRandomColor(), id: features.length }; features.push(feature); updateFeatureList(); calculateIntersections(); adjustZoom(); drawAll(); document.getElementById('dztb-circle-x').value=''; document.getElementById('dztb-circle-y').value=''; document.getElementById('dztb-circle-r').value=''; }
+
+                function addParallelLine(){ const lineIndex=parseInt(document.getElementById('dztb-parallel-line').value); const distance=parseFloat(document.getElementById('dztb-parallel-distance').value); const lineWidth=parseFloat(document.getElementById('dztb-parallel-width').value); if(isNaN(lineIndex)||lineIndex<0||lineIndex>=features.length||features[lineIndex].type!=='line'){ alert('请选择有效的基准直线'); return; } if(isNaN(distance)){ alert('请输入有效的距离'); return; } const baseLine=features[lineIndex]; const dx=baseLine.x2-baseLine.x1; const dy=baseLine.y2-baseLine.y1; const len=Math.sqrt(dx*dx+dy*dy); const ux=dx/len; const uy=dy/len; const nx=-uy; const ny=ux; const offsetX=nx*(distance); const offsetY=ny*(distance); const feature1={ type:'line', x1:baseLine.x1+offsetX, y1:baseLine.y1+offsetY, x2:baseLine.x2+offsetX, y2:baseLine.y2+offsetY, lineWidth, color:dztb_getRandomColor(), id:features.length }; features.push(feature1); updateFeatureList(); calculateIntersections(); drawAll(); }
+
+                function addAngleLine(){ const vx=parseFloat(document.getElementById('dztb-angle-x').value); const vy=parseFloat(document.getElementById('dztb-angle-y').value); const baseIndex=parseInt(document.getElementById('dztb-angle-line').value); const angleDeg=parseFloat(document.getElementById('dztb-angle-value').value); const lineWidth=parseFloat(document.getElementById('dztb-angle-width').value); if(isNaN(vx)||isNaN(vy)||isNaN(baseIndex)||baseIndex<0||baseIndex>=features.length||features[baseIndex].type!=='line'){ alert('请输入有效值'); return; } const base=features[baseIndex]; const dx=base.x2-base.x1; const dy=base.y2-base.y1; const baseAngle=Math.atan2(dy,dx); const newAngle=baseAngle + angleDeg*(Math.PI/180); const len=10; const x2=vx+len*Math.cos(newAngle); const y2=vy+len*Math.sin(newAngle); const feature={ type:'line', x1:vx, y1:vy, x2:x2, y2:y2, lineWidth, color:dztb_getRandomColor(), id:features.length }; features.push(feature); updateFeatureList(); calculateIntersections(); drawAll(); }
+
+                function convertToLine(){ const idx=parseInt(document.getElementById('dztb-convert-line').value); if(isNaN(idx)||idx<0||idx>=features.length||features[idx].type!=='line'){ alert('请选择有效线段'); return; } /* already line in our data model */ alert('已转换（数据模型内为直线）'); }
+
+                function measureItems(){ const v1=document.getElementById('dztb-measure-item1').value; const v2=document.getElementById('dztb-measure-item2').value; const out=document.getElementById('dztb-measure-result'); if(v1===v2){ out.textContent='请选择不同对象'; return; } function getPoint(val){ if(val.startsWith('point-')){ const i=parseInt(val.split('-')[1]); return intersections[i]; } const i=parseInt(val); if(isNaN(i)) return null; const f=features[i]; if(f.type==='line') return {x:f.x1,y:f.y1}; if(f.type==='circle') return {x:f.x,y:f.y}; return null; } const p1=getPoint(v1); const p2=getPoint(v2); if(!p1||!p2){ out.textContent='无法测量'; return; } const dx=p1.x-p2.x; const dy=p1.y-p2.y; const d=Math.sqrt(dx*dx+dy*dy); out.textContent=`距离: ${d.toFixed(3)}`; }
+
+                function calculateIntersections(){ intersections=[]; // simple pairwise line intersections for visible features
+                    for(let i=0;i<features.length;i++){ for(let j=i+1;j<features.length;j++){ const a=features[i], b=features[j]; if(a.type==='line'&&b.type==='line'){ const x1=a.x1,y1=a.y1,x2=a.x2,y2=a.y2,x3=b.x1,y3=b.y1,x4=b.x2,y4=b.y2; const denom=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4); if(denom!==0){ const px=((x1*y2-y1*x2)*(x3-x4)-(x1-x2)*(x3*y4-y3*x4))/denom; const py=((x1*y2-y1*x2)*(y3-y4)-(y1-y2)*(x3*y4-y3*x4))/denom; intersections.push({x:px,y:py}); } } }
+                    }
+                    updateFeatureList(); }
+
+                function adjustZoom(){ /* optional: keep for completeness */ }
+
+                function zoomOut(){ zoom*=0.9; drawAll(); }
+                function zoomIn(){ zoom*=1.1; drawAll(); }
+                function zoomFit(){ zoom=1; panX=0; panY=0; drawAll(); }
+                function zoomReset(){ zoom=1; panX=0; panY=0; drawAll(); }
+
+                function dztb_getRandomColor(){ return '#'+Math.floor(Math.random()*16777215).toString(16); }
+
+                // Initialize
+                function init(){ resizeCanvas(); setupInputEvents(); updateFeatureList(); }
+                window.addEventListener('load', init);
+                // expose some functions to global scope for inline onclick handlers
+                window.dztb_addLine = addLine; window.dztb_addCircle = addCircle; window.dztb_addParallelLine = addParallelLine; window.dztb_addAngleLine = addAngleLine;
+                window.dztb_convertToLine = convertToLine; window.dztb_measureItems = measureItems; window.dztb_updateFeature = updateFeature; window.dztb_openEditTab = openEditTab;
+                window.dztb_zoomOut = zoomOut; window.dztb_zoomIn = zoomIn; window.dztb_zoomFit = zoomFit; window.dztb_zoomReset = zoomReset;
+                window.dztb_getRandomColor = dztb_getRandomColor;
+                window.calculateIntersections = calculateIntersections; // used internally
+            })();
+            </script>
+        </section>
+    </div>
+
+    <div class="nav" role="navigation" aria-label="主导航">
+        <button data-target="gl-module" class="active"><div>🧭</div><span>挂轮</span></button>
+        <button data-target="jd-module"><div>📐</div><span>交点</span></button>
+        <button data-target="jz-module"><div>📍</div><span>极坐标</span></button>
+        <button data-target="dztb-module"><div>🖼️</div><span>电子图版</span></button>
+        <button data-target="mill-module"><div>⚙️</div><span>铣油线</span></button>
+    </div>
+
+    <script>
+        // 切换模块
+        const navBtns = document.querySelectorAll('.nav button');
+        function activate(id){ document.querySelectorAll('section.module').forEach(s=>s.classList.toggle('active', s.id===id)); navBtns.forEach(b=>b.classList.toggle('active', b.dataset.target===id)); window.scrollTo({top:0,behavior:'instant'}); }
+        navBtns.forEach(b=>b.addEventListener('click', ()=>activate(b.dataset.target)));
+        // 默认显示挂轮
+        activate('gl-module');
+    </script>
+</body>
+</html>
+
+

@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电子图版</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f1e6;
+            color: #5a4a42;
+            touch-action: manipulation;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            max-width: 100%;
+        }
+        .tab-container {
+            display: flex;
+            flex-direction: column;
+            background-color: #e8d8c0;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border: 1px solid #c4b6a0;
+        }
+        .tab-header {
+            display: flex;
+            border-bottom: 1px solid #c4b6a0;
+            background: linear-gradient(to bottom, #e8d8c0, #d9c7a7);
+        }
+        .tab-button {
+            padding: 10px 15px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            flex: 1;
+            text-align: center;
+            color: #5a4a42;
+            border-right: 1px solid #c4b6a0;
+            transition: all 0.3s ease;
+            font-family: 'Times New Roman', serif;
+        }
+        .tab-button:last-child {
+            border-right: none;
+        }
+        .tab-button:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+        .tab-button.active {
+            background-color: #d9c7a7;
+            border-bottom: 2px solid #8b7d65;
+            font-weight: bold;
+        }
+        .tab-content {
+            padding: 10px;
+            display: none;
+            background-color: #f0e6d2;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .input-group {
+            margin-bottom: 10px;
+        }
+        .input-group h3 {
+            margin-top: 0;
+            margin-bottom: 5px;
+            font-size: 16px;
+            color: #5a4a42;
+            border-bottom: 1px solid #c4b6a0;
+            padding-bottom: 5px;
+        }
+        .input-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 5px;
+            align-items: center;
+        }
+        .input-row label {
+            width: 60px;
+            font-size: 14px;
+            color: #5a4a42;
+        }
+        .input-row input, .input-row select {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #c4b6a0;
+            border-radius: 3px;
+            min-width: 50px;
+            background-color: #f9f5eb;
+            color: #5a4a42;
+            font-family: 'Times New Roman', serif;
+            cursor: pointer;
+        }
+        .input-row input:focus, .input-row select:focus {
+            outline: 2px solid #8b7d65;
+        }
+        button {
+            background-color: #8b7d65;
+            color: #f9f5eb;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            font-family: 'Times New Roman', serif;
+        }
+        button:hover {
+            background-color: #756a56;
+        }
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background-color: #f9f5eb;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid #c4b6a0;
+            touch-action: none;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .results, .features, .measurements {
+            background-color: #f0e6d2;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border: 1px solid #c4b6a0;
+        }
+        .results h3, .features h3, .measurements h3 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #5a4a42;
+            border-bottom: 1px solid #c4b6a0;
+            padding-bottom: 5px;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .feature-item input {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .feature-item label {
+            font-size: 14px;
+            color: #5a4a42;
+        }
+        .feature-item input:not(:checked) + label {
+            opacity: 0.6;
+        }
+        .coordinates {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #5a4a42;
+            padding-left: 5px;
+            border-left: 3px solid #c4b6a0;
+        }
+        .zoom-controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .zoom-controls button {
+            width: 40px;
+            height: 40px;
+            font-size: 18px;
+        }
+        .line-width-control {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .line-width-control label {
+            width: 60px;
+            font-size: 14px;
+            color: #5a4a42;
+        }
+        .line-width-control input {
+            flex: 1;
+            padding: 5px;
+            border: 1px solid #c4b6a0;
+            border-radius: 3px;
+            background-color: #f9f5eb;
+            color: #5a4a42;
+        }
+        .intersection-label {
+            position: absolute;
+            background-color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 12px;
+            color: red;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        .edit-feature {
+            margin-left: 10px;
+            font-size: 12px;
+            color: #5a4a42;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="color: #5a4a42; text-align: center; font-family: 'Times New Roman', serif;">天海新产品专用算点工具</h1>
+        
+        <div class="tab-container">
+            <div class="tab-header">
+                <button class="tab-button active" onclick="openTab(event, 'line-tab')">直线</button>
+                <button class="tab-button" onclick="openTab(event, 'circle-tab')">圆</button>
+                <button class="tab-button" onclick="openTab(event, 'parallel-tab')">平行线</button>
+                <button class="tab-button" onclick="openTab(event, 'angle-tab')">角度</button>
+                <button class="tab-button" onclick="openTab(event, 'convert-tab')">转直线</button>
+                <button class="tab-button" onclick="openTab(event, 'measure-tab')">测量</button>
+                <button class="tab-button" onclick="openTab(event, 'edit-tab')">编辑</button>
+            </div>
+            
+            <!-- 直线标签页 -->
+            <div id="line-tab" class="tab-content active">
+                <div class="input-group">
+                    <h3>直线</h3>
+                    <div class="input-row">
+                        <label>点1 X:</label>
+                        <input type="number" id="line-x1" placeholder="X坐标">
+                    </div>
+                    <div class="input-row">
+                        <label>点1 Y:</label>
+                        <input type="number" id="line-y1" placeholder="Y坐标">
+                    </div>
+                    <div class="input-row">
+                        <label>点2 X:</label>
+                        <input type="number" id="line-x2" placeholder="X坐标">
+                    </div>
+                    <div class="input-row">
+                        <label>点2 Y:</label>
+                        <input type="number" id="line-y2" placeholder="Y坐标">
+                    </div>
+                    <div class="line-width-control">
+                        <label>线宽:</label>
+                        <input type="number" id="line-width" placeholder="线宽" min="1" max="10" value="10">
+                    </div>
+                    <button onclick="addLine()">添加直线</button>
+                </div>
+            </div>
+            
+            <!-- 圆标签页 -->
+            <div id="circle-tab" class="tab-content">
+                <div class="input-group">
+                    <h3>圆</h3>
+                    <div class="input-row">
+                        <label>圆心 X:</label>
+                        <input type="number" id="circle-x" placeholder="X坐标">
+                    </div>
+                    <div class="input-row">
+                        <label>圆心 Y:</label>
+                        <input type="number" id="circle-y" placeholder="Y坐标">
+                    </div>
+                    <div class="input-row">
+                        <label>半径:</label>
+                        <input type="number" id="circle-r" placeholder="半径">
+                    </div>
+                    <div class="line-width-control">
+                        <label>线宽:</label>
+                        <input type="number" id="circle-width" placeholder="线宽" min="1" max="10" value="10">
+                    </div>
+                    <button onclick="addCircle()">添加圆</button>
+                </div>
+            </div>
+            
+            <!-- 平行线标签页 -->
+            <div id="parallel-tab" class="tab-content">
+                <div class="input-group">
+                    <h3>平行线</h3>
+                    <div class="input-row">
+                        <label>基准线:</label>
+                        <select id="parallel-line">
+                            <!-- 动态填充直线选项 -->
+                        </select>
+                    </div>
+                    <div class="input-row">
+                        <label>距离:</label>
+                        <input type="number" id="parallel-distance" placeholder="距离">
+                    </div>
+                    <div class="line-width-control">
+                        <label>线宽:</label>
+                        <input type="number" id="parallel-width" placeholder="线宽" min="1" max="10" value="10">
+                    </div>
+                    <button onclick="addParallelLine()">添加平行线</button>
+                </div>
+            </div>
+            
+            <!-- 角度线标签页 -->
+            <div id="angle-tab" class="tab-content">
+                <div class="input-group">
+                    <h3>角度线</h3>
+                    <div class="input-row">
+                        <label>顶点 X:</label>
+                        <input type="number" id="angle-x" placeholder="X坐标">
+                    </div>
+                    <div class="input-row">
+                        <label>顶点 Y:</label>
+                        <input type="number" id="angle-y" placeholder="Y坐标">
+                    </div>
+                    <div class="input-row">
+                        <label>基准线:</label>
+                        <select id="angle-line">
+                            <!-- 动态填充直线选项 -->
+                        </select>
+                    </div>
+                    <div class="input-row">
+                        <label>角度:</label>
+                        <input type="number" id="angle-value" placeholder="角度(度)">
+                    </div>
+                    <div class="line-width-control">
+                        <label>线宽:</label>
+                        <input type="number" id="angle-width" placeholder="线宽" min="1" max="10" value="10">
+                    </div>
+                    <button onclick="addAngleLine()">添加角度线</button>
+                </div>
+            </div>
+            
+            <!-- 线段转直线标签页 -->
+            <div id="convert-tab" class="tab-content">
+                <div class="input-group">
+                    <h3>线段转直线</h3>
+                    <div class="input-row">
+                        <label>选择线段:</label>
+                        <select id="convert-line">
+                            <!-- 动态填充直线选项 -->
+                        </select>
+                    </div>
+                    <button onclick="convertToLine()">转换为直线</button>
+                </div>
+            </div>
+            
+            <!-- 测量标签页 -->
+            <div id="measure-tab" class="tab-content">
+                <div class="input-group">
+                    <h3>测量工具</h3>
+                    <div class="input-row">
+                        <label>选择项1:</label>
+                        <select id="measure-item1">
+                            <!-- 动态填充选项 -->
+                        </select>
+                    </div>
+                    <div class="input-row">
+                        <label>选择项2:</label>
+                        <select id="measure-item2">
+                            <!-- 动态填充选项 -->
+                        </select>
+                    </div>
+                    <button onclick="measureItems()">测量</button>
+                    <div id="measure-result" class="coordinates" style="margin-top: 10px;">
+                        <!-- 测量结果将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 编辑标签页 -->
+            <div id="edit-tab" class="tab-content">
+                <div class="input-group">
+                    <h3>编辑特征</h3>
+                    <div class="input-row">
+                        <label>选择特征:</label>
+                        <select id="edit-feature">
+                            <!-- 动态填充特征选项 -->
+                        </select>
+                    </div>
+                    <div id="edit-line-controls">
+                        <div class="input-row">
+                            <label>点1 X:</label>
+                            <input type="number" id="edit-x1" placeholder="X坐标">
+                        </div>
+                        <div class="input-row">
+                            <label>点1 Y:</label>
+                            <input type="number" id="edit-y1" placeholder="Y坐标">
+                        </div>
+                        <div class="input-row">
+                            <label>点2 X:</label>
+                            <input type="number" id="edit-x2" placeholder="X坐标">
+                        </div>
+                        <div class="input-row">
+                            <label>点2 Y:</label>
+                            <input type="number" id="edit-y2" placeholder="Y坐标">
+                        </div>
+                    </div>
+                    <div id="edit-circle-controls" style="display:none;">
+                        <div class="input-row">
+                            <label>圆心 X:</label>
+                            <input type="number" id="edit-cx" placeholder="X坐标">
+                        </div>
+                        <div class="input-row">
+                            <label>圆心 Y:</label>
+                            <input type="number" id="edit-cy" placeholder="Y坐标">
+                        </div>
+                        <div class="input-row">
+                            <label>半径:</label>
+                            <input type="number" id="edit-cr" placeholder="半径">
+                        </div>
+                    </div>
+                    <div class="line-width-control">
+                        <label>线宽:</label>
+                        <input type="number" id="edit-width" placeholder="线宽" min="1" max="10">
+                    </div>
+                    <button onclick="updateFeature()">更新特征</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="zoom-controls">
+            <button onclick="zoomOut()">-</button>
+            <button onclick="zoomIn()">+</button>
+            <button onclick="zoomFit()">适应</button>
+            <button onclick="zoomReset()">重置</button>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="drawingCanvas"></canvas>
+        </div>
+        
+        <div class="results">
+            <h3>交点坐标</h3>
+            <div id="intersections">
+                <!-- 交点将在这里显示 -->
+            </div>
+        </div>
+        
+        <div class="features">
+            <h3>特征列表</h3>
+            <div id="feature-list">
+                <!-- 特征将在这里显示 -->
+            </div>
+        </div>
+        
+        <div class="measurements">
+            <h3>测量结果</h3>
+            <div id="measurement-results">
+                <!-- 测量结果将在这里显示 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        let features = [];
+        let intersections = [];
+        let zoom = 1.0;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let lastX = 0;
+        let lastY = 0;
+        let intersectionLabels = [];
+        let measurements = [];
+        
+        // 页面加载完成后初始化
+        window.onload = function() {
+            resizeCanvas();
+            setupInputEvents();
+        };
+        
+        // 设置画布大小
+        function resizeCanvas() {
+            const container = document.querySelector('.canvas-container');
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+            drawAll();
+        }
+        
+        // 窗口大小改变时调整画布
+        window.addEventListener('resize', resizeCanvas);
+        
+        // 设置输入框事件监听
+        function setupInputEvents() {
+            // 获取所有输入框和下拉菜单
+            const inputs = document.querySelectorAll('input[type="number"], input[type="text"], select');
+            
+            // 为每个输入元素添加点击事件
+            inputs.forEach(input => {
+                input.addEventListener('click', function() {
+                    this.focus();
+                });
+                
+                // 添加键盘事件支持
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        // 根据所在标签页执行相应操作
+                        const activeTab = document.querySelector('.tab-content.active');
+                        if (activeTab.id === 'line-tab') {
+                            addLine();
+                        } else if (activeTab.id === 'circle-tab') {
+                            addCircle();
+                        } else if (activeTab.id === 'parallel-tab') {
+                            addParallelLine();
+                        } else if (activeTab.id === 'angle-tab') {
+                            addAngleLine();
+                        } else if (activeTab.id === 'convert-tab') {
+                            convertToLine();
+                        } else if (activeTab.id === 'measure-tab') {
+                            measureItems();
+                        } else if (activeTab.id === 'edit-tab') {
+                            updateFeature();
+                        }
+                    }
+                });
+            });
+        }
+        
+        // 标签页切换函数
+        function openTab(evt, tabName) {
+            const tabContents = document.getElementsByClassName('tab-content');
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            
+            const tabButtons = document.getElementsByClassName('tab-button');
+            for (let i = 0; i < tabButtons.length; i++) {
+                tabButtons[i].classList.remove('active');
+            }
+            
+            document.getElementById(tabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+            
+            // 确保新标签页的输入框也能获得焦点
+            setTimeout(() => {
+                const inputs = document.querySelectorAll(`#${tabName} input, #${tabName} select`);
+                if (inputs.length > 0) {
+                    inputs[0].focus();
+                }
+            }, 50);
+        }
+        
+        // 绘制所有图形
+        function drawAll() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 保存当前状态
+            ctx.save();
+            
+            // 应用缩放和平移
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            ctx.translate(centerX + panX, centerY + panY);
+            ctx.scale(zoom, zoom);
+            ctx.translate(-centerX, -centerY);
+            
+            // 绘制坐标轴
+            drawAxes();
+            
+            // 绘制所有可见的图形
+            features.forEach((feature, index) => {
+                if (document.getElementById(`feature-${index}`).checked) {
+                    drawFeature(feature);
+                }
+            });
+            
+            // 绘制所有交点
+            drawIntersections();
+            
+            // 恢复状态
+            ctx.restore();
+        }
+        
+        // 绘制坐标轴
+        function drawAxes() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 1;
+            
+            // X轴
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+            
+            // Y轴
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, canvas.height);
+            ctx.stroke();
+            
+            // 绘制刻度
+            ctx.fillStyle = '#999';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            
+            // X轴刻度
+            for (let x = -10; x <= 10; x++) {
+                if (x === 0) continue;
+                const screenX = centerX + x * 20;
+                ctx.beginPath();
+                ctx.moveTo(screenX, centerY - 5);
+                ctx.lineTo(screenX, centerY + 5);
+                ctx.stroke();
+                ctx.fillText(x.toString(), screenX, centerY + 20);
+            }
+            
+            // Y轴刻度
+            ctx.textAlign = 'right';
+            for (let y = -10; y <= 10; y++) {
+                if (y === 0) continue;
+                const screenY = centerY - y * 20;
+                ctx.beginPath();
+                ctx.moveTo(centerX - 5, screenY);
+                ctx.lineTo(centerX + 5, screenY);
+                ctx.stroke();
+                ctx.fillText(y.toString(), centerX - 10, screenY + 5);
+            }
+            
+            // 原点标记
+            ctx.fillStyle = '#000';
+            ctx.fillText('0', centerX - 10, centerY + 15);
+        }
+        
+        // 绘制单个图形
+        function drawFeature(feature) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            ctx.strokeStyle = feature.color;
+            ctx.lineWidth = feature.lineWidth || 2;
+            
+            if (feature.type === 'line') {
+                const x1 = centerX + feature.x1 * 20;
+                const y1 = centerY - feature.y1 * 20;
+                const x2 = centerX + feature.x2 * 20;
+                const y2 = centerY - feature.y2 * 20;
+                
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            } else if (feature.type === 'circle') {
+                const x = centerX + feature.x * 20;
+                const y = centerY - feature.y * 20;
+                const r = feature.r * 20;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+        
+        // 绘制交点
+        function drawIntersections() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // 清除旧的交点标签
+            intersectionLabels.forEach(label => {
+                if (label.parentNode) {
+                    label.parentNode.removeChild(label);
+                }
+            });
+            intersectionLabels = [];
+            
+            ctx.fillStyle = 'red';
+            
+            intersections.forEach((point, index) => {
+                const x = centerX + point.x * 20;
+                const y = centerY - point.y * 20;
+                
+                // 绘制交点
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 添加数字标签
+                const label = document.createElement('div');
+                label.className = 'intersection-label';
+                label.textContent = (index + 1).toString();
+                label.style.left = `${x + 10}px`;
+                label.style.top = `${y - 10}px`;
+                document.querySelector('.canvas-container').appendChild(label);
+                intersectionLabels.push(label);
+            });
+        }
+        
+        // 更新特征列表
+        function updateFeatureList() {
+            const featureList = document.getElementById('feature-list');
+            featureList.innerHTML = '';
+            
+            const parallelLineSelect = document.getElementById('parallel-line');
+            const angleLineSelect = document.getElementById('angle-line');
+            const convertLineSelect = document.getElementById('convert-line');
+            const measureItem1Select = document.getElementById('measure-item1');
+            const measureItem2Select = document.getElementById('measure-item2');
+            const editFeatureSelect = document.getElementById('edit-feature');
+            
+            parallelLineSelect.innerHTML = '';
+            angleLineSelect.innerHTML = '';
+            convertLineSelect.innerHTML = '';
+            measureItem1Select.innerHTML = '';
+            measureItem2Select.innerHTML = '';
+            editFeatureSelect.innerHTML = '';
+            
+            // 添加"无"选项
+            const noneOption = document.createElement('option');
+            noneOption.value = -1;
+            noneOption.textContent = '无';
+            measureItem1Select.appendChild(noneOption.cloneNode(true));
+            measureItem2Select.appendChild(noneOption.cloneNode(true));
+            convertLineSelect.appendChild(noneOption.cloneNode(true));
+            
+            features.forEach((feature, index) => {
+                if (feature.type === 'line') {
+                    // 添加到特征列表
+                    const div = document.createElement('div');
+                    div.className = 'feature-item';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = `feature-${index}`;
+                    checkbox.className = 'feature-checkbox';
+                    checkbox.checked = true;
+                    checkbox.onchange = function() {
+                        drawAll();
+                        calculateIntersections();
+                    };
+                    
+                    const label = document.createElement('label');
+                    label.htmlFor = `feature-${index}`;
+                    label.textContent = `直线 ${index}: (${feature.x1.toFixed(2)}, ${feature.y1.toFixed(2)}) - (${feature.x2.toFixed(2)}, ${feature.y2.toFixed(2)})`;
+                    
+                    // 添加编辑链接
+                    const editLink = document.createElement('span');
+                    editLink.className = 'edit-feature';
+                    editLink.textContent = '编辑';
+                    editLink.onclick = function() {
+                        openEditTab(index);
+                    };
+                    
+                    div.appendChild(checkbox);
+                    div.appendChild(label);
+                    div.appendChild(editLink);
+                    featureList.appendChild(div);
+                    
+                    // 添加到下拉菜单
+                    const option1 = document.createElement('option');
+                    option1.value = index;
+                    option1.textContent = `直线 ${index}`;
+                    parallelLineSelect.appendChild(option1.cloneNode(true));
+                    angleLineSelect.appendChild(option1.cloneNode(true));
+                    convertLineSelect.appendChild(option1.cloneNode(true));
+                    editFeatureSelect.appendChild(option1.cloneNode(true));
+                    
+                    // 添加到测量选择器
+                    const measureOption1 = document.createElement('option');
+                    measureOption1.value = index;
+                    measureOption1.textContent = `直线 ${index}`;
+                    measureItem1Select.appendChild(measureOption1.cloneNode(true));
+                    measureItem2Select.appendChild(measureOption1.cloneNode(true));
+                } else if (feature.type === 'circle') {
+                    const div = document.createElement('div');
+                    div.className = 'feature-item';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = `feature-${index}`;
+                    checkbox.className = 'feature-checkbox';
+                    checkbox.checked = true;
+                    checkbox.onchange = function() {
+                        drawAll();
+                        calculateIntersections();
+                    };
+                    
+                    const label = document.createElement('label');
+                    label.htmlFor = `feature-${index}`;
+                    label.textContent = `圆 ${index}: 圆心(${feature.x.toFixed(2)}, ${feature.y.toFixed(2)}), 半径 ${feature.r.toFixed(2)}`;
+                    
+                    // 添加编辑链接
+                    const editLink = document.createElement('span');
+                    editLink.className = 'edit-feature';
+                    editLink.textContent = '编辑';
+                    editLink.onclick = function() {
+                        openEditTab(index);
+                    };
+                    
+                    div.appendChild(checkbox);
+                    div.appendChild(label);
+                    div.appendChild(editLink);
+                    featureList.appendChild(div);
+                    
+                    // 添加到编辑下拉菜单
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `圆 ${index}`;
+                    editFeatureSelect.appendChild(option);
+                }
+            });
+            
+            // 添加交点选项
+            intersections.forEach((point, index) => {
+                const option1 = document.createElement('option');
+                option1.value = `point-${index}`;
+                option1.textContent = `交点 ${index + 1}: (${point.x.toFixed(2)}, ${point.y.toFixed(2)})`;
+                measureItem1Select.appendChild(option1.cloneNode(true));
+                measureItem2Select.appendChild(option1.cloneNode(true));
+            });
+        }
+        
+        // 打开编辑标签页
+        function openEditTab(index) {
+            // 切换到编辑标签页
+            const tabContents = document.getElementsByClassName('tab-content');
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+            }
+            
+            const tabButtons = document.getElementsByClassName('tab-button');
+            for (let i = 0; i < tabButtons.length; i++) {
+                tabButtons[i].classList.remove('active');
+            }
+            
+            document.getElementById('edit-tab').classList.add('active');
+            document.querySelector('.tab-button[onclick*="edit-tab"]').classList.add('active');
+            
+            // 填充编辑表单
+            const feature = features[index];
+            document.getElementById('edit-feature').value = index;
+            document.getElementById('edit-width').value = feature.lineWidth || 2;
+            
+            if (feature.type === 'line') {
+                document.getElementById('edit-line-controls').style.display = 'block';
+                document.getElementById('edit-circle-controls').style.display = 'none';
+                
+                document.getElementById('edit-x1').value = feature.x1;
+                document.getElementById('edit-y1').value = feature.y1;
+                document.getElementById('edit-x2').value = feature.x2;
+                document.getElementById('edit-y2').value = feature.y2;
+            } else if (feature.type === 'circle') {
+                document.getElementById('edit-line-controls').style.display = 'none';
+                document.getElementById('edit-circle-controls').style.display = 'block';
+                
+                document.getElementById('edit-cx').value = feature.x;
+                document.getElementById('edit-cy').value = feature.y;
+                document.getElementById('edit-cr').value = feature.r;
+            }
+        }
+        
+        // 更新特征
+        function updateFeature() {
+            const index = parseInt(document.getElementById('edit-feature').value);
+            const lineWidth = parseFloat(document.getElementById('edit-width').value);
+            
+            if (isNaN(index) || index < 0 || index >= features.length) {
+                alert('请选择有效的特征');
+                return;
+            }
+            
+            const feature = features[index];
+            
+            if (feature.type === 'line') {
+                const x1 = parseFloat(document.getElementById('edit-x1').value);
+                const y1 = parseFloat(document.getElementById('edit-y1').value);
+                const x2 = parseFloat(document.getElementById('edit-x2').value);
+                const y2 = parseFloat(document.getElementById('edit-y2').value);
+                
+                if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) {
+                    alert('请输入有效的坐标值');
+                    return;
+                }
+                
+                feature.x1 = x1;
+                feature.y1 = y1;
+                feature.x2 = x2;
+                feature.y2 = y2;
+            } else if (feature.type === 'circle') {
+                const x = parseFloat(document.getElementById('edit-cx').value);
+                const y = parseFloat(document.getElementById('edit-cy').value);
+                const r = parseFloat(document.getElementById('edit-cr').value);
+                
+                if (isNaN(x) || isNaN(y) || isNaN(r) || r <= 0) {
+                    alert('请输入有效的圆心坐标和半径');
+                    return;
+                }
+                
+                feature.x = x;
+                feature.y = y;
+                feature.r = r;
+            }
+            
+            feature.lineWidth = lineWidth;
+            
+            updateFeatureList();
+            calculateIntersections();
+            drawAll();
+            
+            alert('特征已更新');
+        }
+        
+        // 添加直线
+        function addLine() {
+            const x1 = parseFloat(document.getElementById('line-x1').value);
+            const y1 = parseFloat(document.getElementById('line-y1').value);
+            const x2 = parseFloat(document.getElementById('line-x2').value);
+            const y2 = parseFloat(document.getElementById('line-y2').value);
+            const lineWidth = parseFloat(document.getElementById('line-width').value);
+            
+            if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) {
+                alert('请输入有效的坐标值');
+                return;
+            }
+            
+            const feature = {
+                type: 'line',
+                x1, y1, x2, y2,
+                lineWidth,
+                color: getRandomColor(),
+                id: features.length
+            };
+            
+            features.push(feature);
+            updateFeatureList();
+            calculateIntersections();
+            adjustZoom();
+            drawAll();
+            
+            // 清空输入框
+            document.getElementById('line-x1').value = '';
+            document.getElementById('line-y1').value = '';
+            document.getElementById('line-x2').value = '';
+            document.getElementById('line-y2').value = '';
+        }
+        
+        // 添加圆
+        function addCircle() {
+            const x = parseFloat(document.getElementById('circle-x').value);
+            const y = parseFloat(document.getElementById('circle-y').value);
+            const r = parseFloat(document.getElementById('circle-r').value);
+            const lineWidth = parseFloat(document.getElementById('circle-width').value);
+            
+            if (isNaN(x) || isNaN(y) || isNaN(r) || r <= 0) {
+                alert('请输入有效的圆心坐标和半径');
+                return;
+            }
+            
+            const feature = {
+                type: 'circle',
+                x, y, r,
+                lineWidth,
+                color: getRandomColor(),
+                id: features.length
+            };
+            
+            features.push(feature);
+            updateFeatureList();
+            calculateIntersections();
+            adjustZoom();
+            drawAll();
+            
+            // 清空输入框
+            document.getElementById('circle-x').value = '';
+            document.getElementById('circle-y').value = '';
+            document.getElementById('circle-r').value = '';
+        }
+        
+        // 添加平行线
+        function addParallelLine() {
+            const lineIndex = parseInt(document.getElementById('parallel-line').value);
+            const distance = parseFloat(document.getElementById('parallel-distance').value);
+            const lineWidth = parseFloat(document.getElementById('parallel-width').value);
+            
+            if (isNaN(lineIndex) || lineIndex < 0 || lineIndex >= features.length || features[lineIndex].type !== 'line') {
+                alert('请选择有效的基准直线');
+                return;
+            }
+            
+            if (isNaN(distance)) {
+                alert('请输入有效的距离');
+                return;
+            }
+            
+            const baseLine = features[lineIndex];
+            
+            // 计算平行线
+            const dx = baseLine.x2 - baseLine.x1;
+            const dy = baseLine.y2 - baseLine.y1;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const offsetX = (-dy / length) * distance;
+            const offsetY = (dx / length) * distance;
+            
+            const feature = {
+                type: 'line',
+                x1: baseLine.x1 + offsetX,
+                y1: baseLine.y1 + offsetY,
+                x2: baseLine.x2 + offsetX,
+                y2: baseLine.y2 + offsetY,
+                lineWidth,
+                color: getRandomColor(),
+                id: features.length
+            };
+            
+            features.push(feature);
+            updateFeatureList();
+            calculateIntersections();
+            adjustZoom();
+            drawAll();
+            
+            // 清空输入框
+            document.getElementById('parallel-distance').value = '';
+        }
+        
+        // 添加角度线
+        function addAngleLine() {
+            const x = parseFloat(document.getElementById('angle-x').value);
+            const y = parseFloat(document.getElementById('angle-y').value);
+            const lineIndex = parseInt(document.getElementById('angle-line').value);
+            const angle = parseFloat(document.getElementById('angle-value').value);
+            const lineWidth = parseFloat(document.getElementById('angle-width').value);
+            
+            if (isNaN(x) || isNaN(y)) {
+                alert('请输入有效的顶点坐标');
+                return;
+            }
+            
+            if (isNaN(lineIndex) || lineIndex < 0 || lineIndex >= features.length || features[lineIndex].type !== 'line') {
+                alert('请选择有效的基准直线');
+                return;
+            }
+            
+            if (isNaN(angle)) {
+                alert('请输入有效的角度');
+                return;
+            }
+            
+            const baseLine = features[lineIndex];
+            
+            // 计算基准线的角度
+            const dx = baseLine.x2 - baseLine.x1;
+            const dy = baseLine.y2 - baseLine.y1;
+            const baseAngle = Math.atan2(dy, dx);
+            const length = Math.sqrt(dx * dx + dy * dy);
+            
+            // 转换为弧度
+            const angleRad = angle * Math.PI / 180;
+            
+            // 计算新角度线的终点，使用基准线相同的长度
+            const endX = x + length * Math.cos(baseAngle + angleRad);
+            const endY = y + length * Math.sin(baseAngle + angleRad);
+            
+            const feature = {
+                type: 'line',
+                x1: x,
+                y1: y,
+                x2: endX,
+                y2: endY,
+                lineWidth,
+                color: getRandomColor(),
+                id: features.length
+            };
+            
+            features.push(feature);
+            updateFeatureList();
+            calculateIntersections();
+            adjustZoom();
+            drawAll();
+            
+            // 清空输入框
+            document.getElementById('angle-x').value = '';
+            document.getElementById('angle-y').value = '';
+            document.getElementById('angle-value').value = '';
+        }
+        
+        // 线段转直线功能
+        function convertToLine() {
+            const lineIndex = parseInt(document.getElementById('convert-line').value);
+            
+            if (isNaN(lineIndex) || lineIndex < 0 || lineIndex >= features.length || features[lineIndex].type !== 'line') {
+                alert('请选择有效的线段');
+                return;
+            }
+            
+            const line = features[lineIndex];
+            
+            // 计算线段长度
+            const dx = line.x2 - line.x1;
+            const dy = line.y2 - line.y1;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            
+            // 计算延长后的端点
+            const scale = 10; // 延长倍数
+            const newX1 = line.x1 - dx * scale;
+            const newY1 = line.y1 - dy * scale;
+            const newX2 = line.x2 + dx * scale;
+            const newY2 = line.y2 + dy * scale;
+            
+            // 创建新的直线特征
+            const feature = {
+                type: 'line',
+                x1: newX1,
+                y1: newY1,
+                x2: newX2,
+                y2: newY2,
+                lineWidth: line.lineWidth,
+                color: line.color,
+                id: features.length
+            };
+            
+            features.push(feature);
+            updateFeatureList();
+            calculateIntersections();
+            adjustZoom();
+            drawAll();
+        }
+        
+        // 测量工具
+        function measureItems() {
+            const item1Index = document.getElementById('measure-item1').value;
+            const item2Index = document.getElementById('measure-item2').value;
+            
+            if (item1Index === '-1' || item2Index === '-1') {
+                alert('请选择两个测量项');
+                return;
+            }
+            
+            let result = '';
+            
+            // 测量两点距离
+            if (item1Index.startsWith('point-') && item2Index.startsWith('point-')) {
+                const point1Index = parseInt(item1Index.split('-')[1]);
+                const point2Index = parseInt(item2Index.split('-')[1]);
+                
+                const point1 = intersections[point1Index];
+                const point2 = intersections[point2Index];
+                
+                const dx = point2.x - point1.x;
+                const dy = point2.y - point1.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                result = `两点距离: ${distance.toFixed(2)}`;
+            }
+            // 测量两条直线的夹角
+            else if (!item1Index.startsWith('point-') && !item2Index.startsWith('point-')) {
+                const line1 = features[parseInt(item1Index)];
+                const line2 = features[parseInt(item2Index)];
+                
+                if (line1.type !== 'line' || line2.type !== 'line') {
+                    alert('请选择两条直线进行角度测量');
+                    return;
+                }
+                
+                // 计算两条直线的向量
+                const vec1 = {
+                    x: line1.x2 - line1.x1,
+                    y: line1.y2 - line1.y1
+                };
+                
+                const vec2 = {
+                    x: line2.x2 - line2.x1,
+                    y: line2.y2 - line2.y1
+                };
+                
+                // 计算夹角
+                const dotProduct = vec1.x * vec2.x + vec1.y * vec2.y;
+                const mag1 = Math.sqrt(vec1.x * vec1.x + vec1.y * vec1.y);
+                const mag2 = Math.sqrt(vec2.x * vec2.x + vec2.y * vec2.y);
+                
+                let angle = Math.acos(dotProduct / (mag1 * mag2)) * 180 / Math.PI;
+                
+                // 确保角度在0-180度之间
+                angle = Math.min(angle, 180 - angle);
+                
+                result = `两条直线的夹角: ${angle.toFixed(2)}°`;
+            }
+            // 测量点到直线的距离
+            else if (item1Index.startsWith('point-') && !item2Index.startsWith('point-')) {
+                const pointIndex = parseInt(item1Index.split('-')[1]);
+                const lineIndex = parseInt(item2Index);
+                
+                const point = intersections[pointIndex];
+                const line = features[lineIndex];
+                
+                if (line.type !== 'line') {
+                    alert('请选择一条直线');
+                    return;
+                }
+                
+                const distance = pointToLineDistance(point, line);
+                result = `点到直线的距离: ${distance.toFixed(2)}`;
+            }
+            // 测量点到直线的距离（反向）
+            else if (!item1Index.startsWith('point-') && item2Index.startsWith('point-')) {
+                const lineIndex = parseInt(item1Index);
+                const pointIndex = parseInt(item2Index.split('-')[1]);
+                
+                const line = features[lineIndex];
+                const point = intersections[pointIndex];
+                
+                if (line.type !== 'line') {
+                    alert('请选择一条直线');
+                    return;
+                }
+                
+                const distance = pointToLineDistance(point, line);
+                result = `点到直线的距离: ${distance.toFixed(2)}`;
+            }
+            
+            // 显示测量结果
+            const measurementDiv = document.createElement('div');
+            measurementDiv.className = 'measurement-item';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            
+            const label = document.createElement('label');
+            label.textContent = result;
+            
+            measurementDiv.appendChild(checkbox);
+            measurementDiv.appendChild(label);
+            document.getElementById('measurement-results').appendChild(measurementDiv);
+            
+            // 清空选择
+            document.getElementById('measure-item1').value = '-1';
+            document.getElementById('measure-item2').value = '-1';
+        }
+        
+        // 计算点到直线的距离
+        function pointToLineDistance(point, line) {
+            const x0 = point.x;
+            const y0 = point.y;
+            const x1 = line.x1;
+            const y1 = line.y1;
+            const x2 = line.x2;
+            const y2 = line.y2;
+            
+            const numerator = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
+            const denominator = Math.sqrt(Math.pow(y2 - y1, 2) + Math.pow(x2 - x1, 2));
+            
+            return numerator / denominator;
+        }
+        
+        // 计算交点
+        function calculateIntersections() {
+            intersections = [];
+            
+            // 检查所有可见直线与直线之间的交点
+            for (let i = 0; i < features.length; i++) {
+                if (features[i].type !== 'line' || !document.getElementById(`feature-${i}`).checked) continue;
+                
+                for (let j = i + 1; j < features.length; j++) {
+                    if (features[j].type !== 'line' || !document.getElementById(`feature-${j}`).checked) continue;
+                    
+                    const intersection = lineLineIntersection(
+                        features[i].x1, features[i].y1, features[i].x2, features[i].y2,
+                        features[j].x1, features[j].y1, features[j].x2, features[j].y2
+                    );
+                    
+                    if (intersection) {
+                        intersections.push(intersection);
+                    }
+                }
+            }
+            
+            // 检查所有可见直线与可见圆之间的交点
+            for (let i = 0; i < features.length; i++) {
+                if (features[i].type !== 'line' || !document.getElementById(`feature-${i}`).checked) continue;
+                
+                for (let j = 0; j < features.length; j++) {
+                    if (features[j].type !== 'circle' || !document.getElementById(`feature-${j}`).checked) continue;
+                    
+                    const points = lineCircleIntersection(
+                        features[i].x1, features[i].y1, features[i].x2, features[i].y2,
+                        features[j].x, features[j].y, features[j].r
+                    );
+                    
+                    if (points && points.length > 0) {
+                        intersections.push(...points);
+                    }
+                }
+            }
+            
+            // 检查所有可见圆与可见圆之间的交点
+            for (let i = 0; i < features.length; i++) {
+                if (features[i].type !== 'circle' || !document.getElementById(`feature-${i}`).checked) continue;
+                
+                for (let j = i + 1; j < features.length; j++) {
+                    if (features[j].type !== 'circle' || !document.getElementById(`feature-${j}`).checked) continue;
+                    
+                    const points = circleCircleIntersection(
+                        features[i].x, features[i].y, features[i].r,
+                        features[j].x, features[j].y, features[j].r
+                    );
+                    
+                    if (points && points.length > 0) {
+                        intersections.push(...points);
+                    }
+                }
+            }
+            
+            // 更新交点显示
+            updateIntersectionsDisplay();
+        }
+        
+        // 直线与直线交点计算
+        function lineLineIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+            const denominator = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+            
+            if (denominator === 0) {
+                return null; // 平行或重合
+            }
+            
+            const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator;
+            const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator;
+            
+            if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+                return {
+                    x: x1 + ua * (x2 - x1),
+                    y: y1 + ua * (y2 - y1)
+                };
+            }
+            
+            return null;
+        }
+        
+        // 直线与圆交点计算
+        function lineCircleIntersection(x1, y1, x2, y2, cx, cy, r) {
+            // 将直线转换为向量形式
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            
+            // 将圆心平移到原点
+            const A = x1 - cx;
+            const B = y1 - cy;
+            
+            // 计算二次方程系数
+            const a = dx * dx + dy * dy;
+            const b = 2 * (A * dx + B * dy);
+            const c = A * A + B * B - r * r;
+            
+            // 计算判别式
+            const discriminant = b * b - 4 * a * c;
+            
+            if (discriminant < 0) {
+                return []; // 无交点
+            }
+            
+            const t1 = (-b + Math.sqrt(discriminant)) / (2 * a);
+            const t2 = (-b - Math.sqrt(discriminant)) / (2 * a);
+            
+            const points = [];
+            
+            if (t1 >= 0 && t1 <= 1) {
+                points.push({
+                    x: x1 + t1 * dx,
+                    y: y1 + t1 * dy
+                });
+            }
+            
+            if (t2 >= 0 && t2 <= 1 && discriminant !== 0) {
+                points.push({
+                    x: x1 + t2 * dx,
+                    y: y1 + t2 * dy
+                });
+            }
+            
+            return points;
+        }
+        
+        // 圆与圆交点计算
+        function circleCircleIntersection(x1, y1, r1, x2, y2, r2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // 检查圆是否相交
+            if (distance > r1 + r2 || distance < Math.abs(r1 - r2)) {
+                return []; // 无交点
+            }
+            
+            // 计算交点
+            const a = (r1 * r1 - r2 * r2 + distance * distance) / (2 * distance);
+            const h = Math.sqrt(r1 * r1 - a * a);
+            
+            const x3 = x1 + a * dx / distance;
+            const y3 = y1 + a * dy / distance;
+            
+            const rx = -dy * (h / distance);
+            const ry = dx * (h / distance);
+            
+            return [
+                { x: x3 + rx, y: y3 + ry },
+                { x: x3 - rx, y: y3 - ry }
+            ];
+        }
+        
+        // 更新交点显示
+        function updateIntersectionsDisplay() {
+            const intersectionsDiv = document.getElementById('intersections');
+            intersectionsDiv.innerHTML = '';
+            
+            if (intersections.length === 0) {
+                intersectionsDiv.innerHTML = '<div class="coordinates">无交点</div>';
+                return;
+            }
+            
+            intersections.forEach((point, index) => {
+                const div = document.createElement('div');
+                div.className = 'coordinates';
+                div.textContent = `交点 ${index + 1}: (${point.x.toFixed(2)}, ${point.y.toFixed(2)})`;
+                intersectionsDiv.appendChild(div);
+            });
+        }
+        
+        // 自动调整缩放比例
+        function adjustZoom() {
+            if (!features.length) {
+                zoom = 1.0;
+                panX = 0;
+                panY = 0;
+                return;
+            }
+            
+            // 计算所有点的边界
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            
+            features.forEach(feature => {
+                if (feature.type === 'line') {
+                    minX = Math.min(minX, feature.x1, feature.x2);
+                    maxX = Math.max(maxX, feature.x1, feature.x2);
+                    minY = Math.min(minY, feature.y1, feature.y2);
+                    maxY = Math.max(maxY, feature.y1, feature.y2);
+                } else if (feature.type === 'circle') {
+                    minX = Math.min(minX, feature.x - feature.r);
+                    maxX = Math.max(maxX, feature.x + feature.r);
+                    minY = Math.min(minY, feature.y - feature.r);
+                    maxY = Math.max(maxY, feature.y + feature.r);
+                }
+            });
+            
+            // 计算需要的缩放比例
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const scaleX = (canvas.width * 0.8) / (width * 20);
+            const scaleY = (canvas.height * 0.8) / (height * 20);
+            zoom = Math.min(scaleX, scaleY, 5); // 限制最大缩放为5
+            
+            // 计算平移以使图形居中
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            panX = -centerX * 20 * zoom;
+            panY = centerY * 20 * zoom;
+        }
+        
+        // 缩放控制
+        function zoomIn() {
+            zoom *= 1.2;
+            drawAll();
+        }
+        
+        function zoomOut() {
+            zoom /= 1.2;
+            drawAll();
+        }
+        
+        function zoomFit() {
+            adjustZoom();
+            drawAll();
+        }
+        
+        function zoomReset() {
+            zoom = 1.0;
+            panX = 0;
+            panY = 0;
+            drawAll();
+        }
+        
+        // 生成随机颜色
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+        
+        // 添加拖拽功能
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const dx = e.clientX - lastX;
+                const dy = e.clientY - lastY;
+                panX += dx;
+                panY += dy;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                drawAll();
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+        
+        // 添加触摸事件支持
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isDragging = true;
+            lastX = e.touches[0].clientX;
+            lastY = e.touches[0].clientY;
+        });
+        
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (isDragging) {
+                const dx = e.touches[0].clientX - lastX;
+                const dy = e.touches[0].clientY - lastY;
+                panX += dx;
+                panY += dy;
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+                drawAll();
+            }
+        });
+        
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+    </script>
+</body>
+</html>

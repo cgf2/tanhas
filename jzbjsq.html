@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>坐标和极坐标计算器</title>
+    <style>
+        body {
+            font-family: 'Georgia', serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5dc; /* Beige background */
+        }
+        .container {
+            background-color: #fffacd; /* Light goldenrod yellow */
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+        }
+        h2 {
+            text-align: center;
+            color: #8b4513; /* Saddle brown */
+        }
+        .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+        }
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+        }
+        .tab button:hover {
+            background-color: #ddd;
+        }
+        .tab button.active {
+            background-color: #ccc;
+        }
+        .tabcontent {
+            display: none;
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-top: none;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+            color: #8b4513;
+        }
+        input[type="number"] {
+            width: 100%;
+            margin: 5px 0;
+            padding: 10px;
+            border: 1px solid #d2b48c; /* Tan */
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            background-color: #8b4513;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #a0522d; /* Sienna */
+        }
+        .result {
+            margin-top: 20px;
+            text-align: center;
+            font-weight: bold;
+            color: #8b4513;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>陈国富的坐标和极坐标计算器</h2>
+
+        <!-- Tab links -->
+        <div class="tab">
+            <button class="tablinks active" onclick="openTab(event, 'angleCalculator')">坐标角度计算器</button>
+            <button class="tablinks" onclick="openTab(event, 'polarToCartesian')">极坐标转直角坐标</button>
+        </div>
+
+        <!-- Coordinate Angle Calculator -->
+        <div id="angleCalculator" class="tabcontent" style="display:block;">
+            <label for="x">X:</label>
+            <input type="number" id="x" placeholder="输入X轴坐标值">
+            <label for="y">Y:</label>
+            <input type="number" id="y" placeholder="输入Y轴坐标值">
+            <button onclick="calculateAngle()">计算</button>
+            <div class="result" id="angleResult"></div>
+        </div>
+
+        <!-- Polar to Cartesian Converter -->
+        <div id="polarToCartesian" class="tabcontent">
+            <label for="radius">极半径 (r):</label><br>
+            <input type="number" id="radius" placeholder="请输入极半径"><br>
+            <label for="angle">起始角度 (θ) (度):</label><br>
+            <input type="number" id="angle" placeholder="请输入起始角度"><br>
+            <button onclick="convertPolarToCartesian()">计算</button>
+            <div class="result" id="polarResult"></div>
+        </div>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tablinks = document.getElementsByClassName("tablinks");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        function calculateAngle() {
+            const x = parseFloat(document.getElementById('x').value);
+            const y = parseFloat(document.getElementById('y').value);
+
+            if (isNaN(x) || isNaN(y)) {
+                document.getElementById('angleResult').textContent = '请输入完整的值.';
+                return;
+            }
+
+            let angle = Math.atan2(y, x) * (180 / Math.PI);
+            if (angle < 0) {
+                angle += 360; // Convert to positive angle in degrees
+            }
+
+            const radius = Math.sqrt(x * x + y * y);
+
+            document.getElementById('angleResult').textContent = `算出的角度是 ${angle.toFixed(3)}°\n极半径是 ${radius.toFixed(3)}`;
+        }
+
+        function convertPolarToCartesian() {
+            const radius = parseFloat(document.getElementById('radius').value);
+            const angleDegrees = parseFloat(document.getElementById('angle').value);
+
+            if (isNaN(radius) || isNaN(angleDegrees)) {
+                document.getElementById('polarResult').innerText = '请输入有效的数值';
+                return;
+            }
+
+            const angleRadians = angleDegrees * (Math.PI / 180);
+            const x = radius * Math.cos(angleRadians);
+            const y = radius * Math.sin(angleRadians);
+
+            document.getElementById('polarResult').innerText = `X: ${x.toFixed(3)}, Y: ${y.toFixed(3)}`;
+        }
+    </script>
+</body>
+</html>
+
+
+

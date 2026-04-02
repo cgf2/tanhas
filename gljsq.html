@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>挂轮计算器</title>
+    <style>
+        /* 色彩鲜艳风格样式 */
+        body {
+            font-family: "SimSun", serif; /* 使用仿宋字体 */
+            text-align: center;
+            margin: 20px;
+            background-color: #ffefd5; /* 浅桃色背景 */
+            color: #2f4f4f; /* 深青色文字 */
+        }
+        .calculator {
+            display: inline-block;
+            border: 2px solid #4682b4; /* 钢蓝色边框 */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(70, 130, 180, 0.5); /* 柔和阴影 */
+            width: 90%;
+            max-width: 400px;
+            background-color: #f0f8ff; /* 浅蓝色背景 */
+        }
+        input {
+            width: 80%;
+            margin: 5px;
+            border: 1px solid #4682b4; /* 钢蓝色边框 */
+            border-radius: 5px;
+            padding: 5px;
+            font-family: "SimSun", serif;
+            background-color: #e6e6fa; /* 浅紫色背景 */
+            color: #2f4f4f; /* 深青色文字 */
+        }
+        button {
+            margin: 5px;
+            width: 30%;
+            background-color: #ff4500; /* 橙红色按钮背景 */
+            color: #ffffff; /* 白色文字 */
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            font-family: "SimSun", serif;
+        }
+        button:hover {
+            background-color: #ff6347; /* 番茄色按钮悬停颜色 */
+        }
+        #gearResult {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #2f4f4f; /* 深青色文字 */
+        }
+        input[type="checkbox"] {
+            margin-right: 5px; /* 调整选择框与标签的间距 */
+        }
+        label {
+            display: inline-block; /* 使标签与选择框在同一行 */
+            font-family: "SimSun", serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <h2>陈国富的挂轮计算器</h2>
+        <input type="number" id="toolTeeth" placeholder="刀具齿数">
+        <input type="number" id="workpieceTeeth" placeholder="工件齿数">
+        <br>
+        <div style="display: flex; align-items: center; justify-content: center; margin: 10px;">
+            <input type="checkbox" id="conditionCD">
+            <label for="conditionCD">启用 C + D = 120 条件</label>
+        </div>
+        <button onclick="calculateGears()">计算挂轮组合</button>
+        <div id="gearResult">挂轮组合: </div>
+    </div>
+    <script>
+        function calculateGears() {
+            const toolTeeth = parseInt(document.getElementById('toolTeeth').value);
+            const workpieceTeeth = parseInt(document.getElementById('workpieceTeeth').value);
+            const conditionCD = document.getElementById('conditionCD').checked;
+
+            if (isNaN(toolTeeth) || isNaN(workpieceTeeth) || toolTeeth <= 0 || workpieceTeeth <= 0) {
+                document.getElementById('gearResult').innerText = '挂轮组合: 请输入有效齿数';
+                return;
+            }
+
+            const minTeeth = 20;
+            const maxTeeth = 99;
+            const results = [];
+
+            for (let A = minTeeth; A <= maxTeeth; A++) {
+                for (let B = minTeeth; B <= maxTeeth; B++) {
+                    for (let C = minTeeth; C <= maxTeeth; C++) {
+                        for (let D = minTeeth; D <= maxTeeth; D++) {
+                            const conditionCDValid = !conditionCD || (C + D === 120);
+                            if (conditionCDValid && (A / B) * (C / D) === toolTeeth / workpieceTeeth && A + B - C > 25) {
+                                results.push(`A=${A}, B=${B}, C=${C}, D=${D}`);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (results.length > 0) {
+                const formattedResults = results.map(result => {
+                    const [A, B, C, D] = result.match(/\d+/g);
+                    return `<tr><td>${A}</td><td>${B}</td><td>${C}</td><td>${D}</td></tr>`;
+                }).join('');
+                document.getElementById('gearResult').innerHTML = `
+                    <table border="1" style="margin: auto; border-collapse: collapse; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>挂轮A</th>
+                                <th>挂轮B</th>
+                                <th>挂轮C</th>
+                                <th>挂轮D</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${formattedResults}
+                        </tbody>
+                    </table>`;
+            } else {
+                document.getElementById('gearResult').innerText = '挂轮组合: 无符合条件的组合';
+            }
+        }
+    </script>
+</body>
+</html>
