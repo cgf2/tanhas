@@ -96,12 +96,6 @@
   .status.success.show { display:block; background:#e9f9f0; color:#0f7a3d; border:1px solid #a9e3c2; }
   .status.warn.show    { display:block; background:#fff7e6; color:#9a5b00; border:1px solid #f3d59a; }
   .status.error.show   { display:block; background:#fdecec; color:#b42318; border:1px solid #f3b4b0; }
-  .tip {
-    flex: 1 1 100%;
-    font-size: 12px;
-    color: #8a94a6;
-    line-height: 1.5;
-  }
 
   /* ============ 报表区域（截图目标） ============ */
   .page {
@@ -253,9 +247,6 @@
   <button type="button" class="btn" id="btnDelProject" title="删除当前光标所在的项目（含其全部工序行）">－ 删除项目</button>
   <button type="button" class="btn" id="btnAddStep" title="在当前光标所在工序行下方插入一个空白工序行">＋ 新增工序行</button>
   <button type="button" class="btn" id="btnDelStep" title="删除当前光标所在的工序行（不影响项目列）">－ 删除工序行</button>
-  <button type="button" class="btn" id="btnSave">保存JSON</button>
-  <button type="button" class="btn" id="btnImport">导入JSON</button>
-  <input type="file" id="fileInput" accept="application/json,.json" hidden>
 
   <span class="autosave-chip" id="autosaveChip" title="编辑单元格后停止输入 0.5 秒即自动保存到本地暂存">
     <span class="dot"></span>
@@ -264,9 +255,6 @@
   </span>
 
   <div class="status" id="status" role="status" aria-live="polite"></div>
-  <div class="tip" id="tip">
-    使用提示：表格内容可直接点击编辑，停止输入约 0.5 秒后自动保存到浏览器本地（无需手动保存）→ 点击「复制表格到剪贴板」→ 打开微信聊天框按 Ctrl+V 粘贴即可；手机端若长按无法粘贴，请点「下载PNG图片」后发送。推荐使用 Chrome / Edge 浏览器。
-  </div>
 </header>
 
 <!-- ================= 报表截图区域 ================= -->
@@ -387,30 +375,6 @@ const TableModule = (() => {
     body.innerHTML = html;
   }
 
-  // 将表格（含 rowspan/colspan）展开为 15 列矩形矩阵（导出 JSON 用）
-  function toMatrix() {
-    const table = document.getElementById("reportTable");
-    const matrix = [];
-    const occupied = Object.create(null);
-    Array.prototype.forEach.call(table.rows, (row, r) => {
-      matrix[r] = matrix[r] || [];
-      let c = 0;
-      Array.prototype.forEach.call(row.cells, cell => {
-        while (occupied[r + "_" + c]) c++;
-        const v = cell.innerText.replace(/ /g, " ").trim();
-        for (let rs = 0; rs < cell.rowSpan; rs++) {
-          for (let cs = 0; cs < cell.colSpan; cs++) {
-            matrix[r + rs] = matrix[r + rs] || [];
-            matrix[r + rs][c + cs] = v;
-            occupied[(r + rs) + "_" + (c + cs)] = 1;
-          }
-        }
-        c += cell.colSpan;
-      });
-    });
-    return matrix;
-  }
-
   // ---------- 结构持久化 ----------
   function persistStructure() {
     try { localStorage.setItem(STRUCT_KEY, JSON.stringify(groups)); } catch (e) {}
@@ -526,24 +490,6 @@ const TableModule = (() => {
     return !!(loc && groups[loc.g].steps.length > 1);
   }
 
-  // 由矩阵导入：每个数据行转为一个独立项目组（15 列，无跨行合并）
-  function importMatrix(matrix) {
-    if (!Array.isArray(matrix)) throw new Error("JSON 格式不正确：根节点应为数组");
-    const ng = [];
-    for (let r = 2; r < matrix.length; r++) {
-      const row = Array.isArray(matrix[r]) ? matrix[r] : [];
-      const g = blankProject();
-      GROUP_COLS.forEach((k, i) => { g[k] = row[i] == null ? "" : String(row[i]); });
-      const s = blankStep();
-      STEP_COLS.forEach((k, i) => { s[k] = row[5 + i] == null ? "" : String(row[5 + i]); });
-      g.steps = [s];
-      ng.push(g);
-    }
-    groups = ng;
-    cursorTr = null;
-    render(); persistStructure();
-  }
-
   function setOnCursorChange(fn) { cursorChangeCb = fn; }
 
   // 初始化：优先从本地持久化结构恢复，再渲染
@@ -556,8 +502,6 @@ const TableModule = (() => {
   return {
     init: init,
     render: render,
-    toMatrix: toMatrix,
-    importMatrix: importMatrix,
     addProject: addProject,
     deleteProject: deleteProject,
     addStepAfter: addStepAfter,
@@ -974,38 +918,6 @@ const UIModule = (() => {
         "已删除当前工序行。"));
     TableModule.setOnCursorChange(updateOpButtons);
     updateOpButtons();
-
-    document.getElementById("btnSave").addEventListener("click", () => {
-      try {
-        const json = JSON.stringify(TableModule.toMatrix(), null, 2);
-        ClipboardModule.download(
-          new Blob([json], { type: "application/json;charset=utf-8" }),
-          ClipboardModule.defaultFileName().replace(/\.png$/, ".json")
-        );
-        show("success", "表格数据已导出为 JSON 文件。");
-      } catch (e) {
-        show("error", "导出失败：" + (e.message || e), true);
-      }
-    });
-
-    const fileInput = document.getElementById("fileInput");
-    document.getElementById("btnImport").addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", async () => {
-      const file = fileInput.files && fileInput.files[0];
-      if (!file) return;
-      try {
-        const text = await file.text();
-        await AutoSaveApp.flushAndSettle();
-        TableModule.importMatrix(JSON.parse(text));
-        AutoSaveApp.afterStructureChange();     // 以导入内容为新基线，重置自动保存暂存
-        updateOpButtons();
-        show("success", "JSON 数据已导入，表格已刷新（自动保存暂存已重置）。");
-      } catch (e) {
-        show("error", "导入失败：" + (e.message || e) + "，请确认是本页导出的 JSON 文件。", true);
-      } finally {
-        fileInput.value = "";
-      }
-    });
 
     // 环境检测：不支持图片剪贴板或非安全上下文时给出前置提示
     if (!window.isSecureContext) {
