@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
+<title>新产品加工完成报表 - 一键复制表格图片</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", "微软雅黑", "PingFang SC", Arial, sans-serif;
+    background: #eef1f5;
+    color: #1f2937;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* ============ 操作栏（截图时不包含此区域） ============ */
+  .toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    padding: 10px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .toolbar .app-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #374151;
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+  .btn {
+    appearance: none;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #1f2937;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 16px;
+    min-height: 40px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background .15s, box-shadow .15s, transform .05s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #f3f4f6; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .65; cursor: not-allowed; }
+  /* 置灰禁用（保留点击以给出友好提示） */
+  .btn.is-disabled { opacity: .45; cursor: not-allowed; }
+  .btn.is-disabled:hover { background: #ffffff; }
+  .btn.is-disabled:active { transform: none; }
+  .btn-primary {
+    background: #07c160;
+    border-color: #07c160;
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 0 22px;
+    box-shadow: 0 2px 6px rgba(7,193,96,.35);
+  }
+  .btn-primary:hover { background: #06ad56; }
+  .btn .ico { width: 16px; height: 16px; flex: none; fill: currentColor; }
+  .btn.loading .ico-normal { display: none; }
+  .btn:not(.loading) .ico-spin { display: none; }
+  .spinner {
+    width: 15px; height: 15px; flex: none;
+    border: 2px solid rgba(255,255,255,.45);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .status {
+    flex: 1 1 100%;
+    min-height: 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    border-radius: 6px;
+    padding: 0;
+    display: none;
+  }
+  .status.show { display: block; padding: 7px 10px; }
+  .status.info    { display: none; }
+  .status.info.show    { display:block; background:#eaf3ff; color:#0b5cad; border:1px solid #b9d9f7; }
+  .status.success.show { display:block; background:#e9f9f0; color:#0f7a3d; border:1px solid #a9e3c2; }
+  .status.warn.show    { display:block; background:#fff7e6; color:#9a5b00; border:1px solid #f3d59a; }
+  .status.error.show   { display:block; background:#fdecec; color:#b42318; border:1px solid #f3b4b0; }
+  .tip {
+    flex: 1 1 100%;
+    font-size: 12px;
+    color: #8a94a6;
+    line-height: 1.5;
+  }
+
+  /* ============ 报表区域（截图目标） ============ */
+  .page {
+    padding: 14px;
+    display: flex;
+    justify-content: flex-start;
+  }
+  #captureArea {
+    background: #ffffff;
+    padding: 14px 16px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 0 1px 6px rgba(0,0,0,.08);
+  }
+  table.report {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 1645px;
+    font-family: "SimSun", "宋体", "Songti SC", serif;
+    font-size: 14px;
+    color: #000;
+  }
+  table.report td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    text-align: center;
+    vertical-align: middle;
+    line-height: 1.25;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+  td[contenteditable="true"] { cursor: text; }
+  td[contenteditable="true"]:hover { background: #fff7d6; }
+  td[contenteditable="true"]:focus {
+    background: #eaf3ff;
+    outline: 2px solid #2f80ed;
+    outline-offset: -2px;
+  }
+  .title-cell {
+    font-family: "STXingkai", "华文行楷", "KaiTi", "楷体", cursive;
+    font-size: 30px;
+    letter-spacing: 3px;
+    font-weight: 400;
+    padding: 6px !important;
+    white-space: nowrap;
+  }
+  .col-label, thead td { background: #f5f7fa; font-weight: 600; }
+  .foot-notes {
+    width: 1645px;
+    margin-top: 8px;
+    display: grid;
+    grid-template-columns: 55px 90px 125px 195px 85px 130px 75px 105px 90px 80px 175px 85px 85px 165px 105px;
+    font-family: "SimSun", "宋体", "Songti SC", serif;
+    font-size: 14px;
+    color: #000;
+  }
+  .foot-notes span[contenteditable="true"]:hover { background: #fff7d6; }
+  .foot-notes span[contenteditable="true"]:focus { outline: 2px solid #2f80ed; outline-offset: 0; }
+
+  /* ============ 自动保存状态标记 ============ */
+  [data-cid] { position: relative; }
+  [data-cid].as-pending::after,
+  [data-cid].as-saving::after,
+  [data-cid].as-error::after {
+    content: "";
+    position: absolute;
+    top: 2px; right: 2px;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    pointer-events: none;   /* 伪元素圆点不进入 innerText，不影响截图与复制 */
+  }
+  [data-cid].as-pending::after { background: #f59e0b; }   /* 未保存：橙点 */
+  [data-cid].as-saving::after  { background: #2f80ed; animation: asPulse 1s ease-in-out infinite; } /* 保存中：蓝点闪烁 */
+  [data-cid].as-error::after   { background: #dc2626; }   /* 保存失败：红点 */
+  [data-cid].as-saved { animation: asSavedFlash 1.4s ease-out; } /* 保存成功：绿色闪烁 */
+  @keyframes asPulse { 50% { opacity: .2; } }
+  @keyframes asSavedFlash { 0% { background-color: #e9f9f0; } 100% { background-color: transparent; } }
+  tr.as-row-unsaved > td { background-color: #fffaeb; }   /* 行级：含未保存单元格 */
+  tr.as-row-error   > td { background-color: #fef2f2; }   /* 行级：含保存失败单元格 */
+
+  /* 工具条自动保存状态牌 */
+  .autosave-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid #d1d5db;
+    background: #f9fafb;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+  .autosave-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; flex: none; }
+  .autosave-chip.saved   { color: #0f7a3d; border-color: #a9e3c2; background: #e9f9f0; }
+  .autosave-chip.saved   .dot { background: #0f7a3d; }
+  .autosave-chip.pending { color: #9a5b00; border-color: #f3d59a; background: #fff7e6; }
+  .autosave-chip.pending .dot { background: #f59e0b; }
+  .autosave-chip.saving  { color: #0b5cad; border-color: #b9d9f7; background: #eaf3ff; }
+  .autosave-chip.saving  .dot { background: #2f80ed; animation: asPulse 1s ease-in-out infinite; }
+  .autosave-chip.error   { color: #b42318; border-color: #f3b4b0; background: #fdecec; }
+  .autosave-chip.error   .dot { background: #dc2626; }
+  .autosave-chip .retry-btn {
+    appearance: none;
+    border: 1px solid #b42318;
+    background: #b42318;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1;
+    padding: 3px 9px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .autosave-chip .retry-btn:hover { background: #991b1b; }
+
+  /* ============ 响应式 ============ */
+  @media (max-width: 640px) {
+    .toolbar { padding: 8px 10px; gap: 7px; }
+    .toolbar .app-name { flex: 1 1 100%; margin: 0 0 2px; }
+    .btn { flex: 1 1 auto; justify-content: center; min-height: 42px; padding: 0 10px; font-size: 13px; }
+    .btn-primary { flex: 1 1 100%; min-height: 46px; font-size: 16px; }
+    .page { padding: 8px; }
+    #captureArea { padding: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= 操作栏 ================= -->
+<header class="toolbar">
+  <span class="app-name">新产品加工完成报表</span>
+
+  <button type="button" class="btn btn-primary" id="btnCopy">
+    <svg class="ico ico-normal" viewBox="0 0 1024 1024"><path d="M704 64H256a64 64 0 0 0-64 64v64h-64a64 64 0 0 0-64 64v704a64 64 0 0 0 64 64h512a64 64 0 0 0 64-64v-64h64a64 64 0 0 0 64-64V192L704 64z m-64 832H192V256h448v640z m128-128h-64V256l-128-128H320V64h320l128 128v576z"/></svg>
+    <span class="spinner ico-spin"></span>
+    <span class="btn-text">复制表格到剪贴板</span>
+  </button>
+
+  <button type="button" class="btn" id="btnDownload" title="生成PNG图片并下载（微信粘贴失败时的备用方式）">
+    <svg class="ico" viewBox="0 0 1024 1024"><path d="M512 672L288 448h140.8V128h166.4v320H736L512 672zM128 768h768v128H128V768z"/></svg>
+    下载PNG图片
+  </button>
+
+  <button type="button" class="btn" id="btnAddProject" title="在表格末尾新增一个空白项目">＋ 新增项目</button>
+  <button type="button" class="btn" id="btnDelProject" title="删除当前光标所在的项目（含其全部工序行）">－ 删除项目</button>
+  <button type="button" class="btn" id="btnAddStep" title="在当前光标所在工序行下方插入一个空白工序行">＋ 新增工序行</button>
+  <button type="button" class="btn" id="btnDelStep" title="删除当前光标所在的工序行（不影响项目列）">－ 删除工序行</button>
+  <button type="button" class="btn" id="btnSave">保存JSON</button>
+  <button type="button" class="btn" id="btnImport">导入JSON</button>
+  <input type="file" id="fileInput" accept="application/json,.json" hidden>
+
+  <span class="autosave-chip" id="autosaveChip" title="编辑单元格后停止输入 0.5 秒即自动保存到本地暂存">
+    <span class="dot"></span>
+    <span id="autosaveText">自动保存已开启</span>
+    <button type="button" class="retry-btn" id="btnRetrySave" hidden>重试</button>
+  </span>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+  <div class="tip" id="tip">
+    使用提示：表格内容可直接点击编辑，停止输入约 0.5 秒后自动保存到浏览器本地（无需手动保存）→ 点击「复制表格到剪贴板」→ 打开微信聊天框按 Ctrl+V 粘贴即可；手机端若长按无法粘贴，请点「下载PNG图片」后发送。推荐使用 Chrome / Edge 浏览器。
+  </div>
+</header>
+
+<!-- ================= 报表截图区域 ================= -->
+<main class="page">
+  <div id="captureArea">
+    <table class="report" id="reportTable">
+      <colgroup>
+        <col style="width:55px"><col style="width:90px"><col style="width:125px">
+        <col style="width:195px"><col style="width:85px"><col style="width:130px">
+        <col style="width:75px"><col style="width:105px"><col style="width:90px">
+        <col style="width:80px"><col style="width:175px"><col style="width:85px">
+        <col style="width:85px"><col style="width:165px"><col style="width:105px">
+      </colgroup>
+      <tbody id="tableBody"><!-- 由表格渲染模块生成 --></tbody>
+    </table>
+    <div class="foot-notes">
+      <span style="grid-column:12" contenteditable="true">董文禄工装干完，</span>
+      <span style="grid-column:14 / span 2" contenteditable="true">王健修粗糙度19件完</span>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+/* ================================================================
+ * 模块一：表格渲染模块（TableModule）
+ * 负责：报表数据、标准 <table> DOM 渲染、单元格合并、行增删、JSON 导入导出
+ * ================================================================ */
+const TableModule = (() => {
+
+  // 列定义（前 5 列为产品合并列，后 10 列为工序明细列）
+  const GROUP_COLS = ["no", "item", "name", "draw", "qty"];
+  const STEP_COLS  = ["step", "line", "mac", "takt", "done", "note", "worker", "total", "tool", "life"];
+  const HEADERS = ["序号","项目","产品名称","图号","本批数量","工序名称","生产线","机床编号",
+                   "加工节拍","当班完成","进度及异常","加工人员","累计完成数量","使用刀具型号","刀具寿命"];
+
+  // 报表数据（结构：产品分组 + 工序列表，参考 123.jpg）
+  const STRUCT_KEY = "report_structure_v1";   // 表格结构（含全部单元格内容）本地持久化键
+  let cursorTr = null;                        // 当前光标所在数据行（<tr>）
+  let cursorChangeCb = null;                  // 光标变化回调（由 UIModule 注入）
+
+  let groups = [
+    { no:"1", item:"广汽F03", name:"行星架3", draw:"1312183AFK0100", qty:"630", steps:[
+      { step:"热前里孔端面", line:"X3", mac:"CS-352", takt:"4分钟", done:"", note:"", worker:"", total:"", tool:"VCMT160404", life:"未换刀" },
+      { step:"热前另一面",   line:"X3", mac:"CS-344", takt:"3分钟12", done:"", note:"", worker:"", total:"", tool:"VCMT160404", life:"未换刀" },
+      { step:"拉孔",         line:"X5", mac:"LL-108", takt:"", done:"", note:"", worker:"", total:"", tool:"专用刀具", life:"未换刀" },
+      { step:"热后精车端面", line:"x3", mac:"CS-352", takt:"6.5分钟", done:"20", note:"端面摆差大，转二科校正，待料", worker:"蒋文祥", total:"80", tool:"VCMT160408", life:"未换刀" },
+      { step:"热后另一面",   line:"x3", mac:"CS-344", takt:"6分钟", done:"20", note:"", worker:"蒋文祥", total:"80", tool:"VCMT160408", life:"未换刀" },
+      { step:"钻孔",         line:"x3", mac:"CS-340", takt:"11分钟", done:"25", note:"正常", worker:"董文禄", total:"105", tool:"17.8钻头/10铣刀", life:"未换刀" },
+      { step:"铣轮廓",       line:"x3", mac:"DEJA9124", takt:"8分钟", done:"25", note:"正常", worker:"郝均伟", total:"80", tool:"10铣刀/倒角刀", life:"未换刀" }
+    ]},
+    { no:"2", item:"广汽F03", name:"行星架2", draw:"131218AFK0000", qty:"350", steps:[
+      { step:"车里孔",     line:"新建线", mac:"CS-406", takt:"15分钟", done:"20", note:"正常", worker:"唐卫鑫", total:"203", tool:"VCMT160408", life:"未换刀" },
+      { step:"另一面",     line:"X4",     mac:"22909B", takt:"18分钟", done:"20", note:"正常", worker:"唐卫鑫", total:"203", tool:"VCMT160408", life:"未换刀" },
+      { step:"钻孔/攻丝",  line:"X3",     mac:"CS-440", takt:"20分钟", done:"30", note:"正常", worker:"郝均伟", total:"203", tool:"专用丝锥", life:"未换刀" }
+    ]},
+    { no:"3", item:"广汽F03", name:"行星架总成", draw:"1312197AFK0000", qty:"400", steps:[
+      { step:"车里孔",   line:"新建线", mac:"CS-404", takt:"4.6分钟",  done:"27", note:"正常", worker:"赵春源", total:"203", tool:"VCMT160408\nVCMT160404", life:"未换刀" },
+      { step:"车另一面", line:"新建线", mac:"22875B", takt:"12.9分钟", done:"27", note:"正常", worker:"赵春源", total:"203", tool:"VCMT160408\nVCMT160404", life:"未换刀" },
+      { step:"铣内腔",   line:"新建线", mac:"CS-442", takt:"9分钟",    done:"25", note:"正常", worker:"赵春源", total:"203", tool:"14mm铣刀", life:"未换刀" },
+      { step:"钻镗孔",   line:"新建线", mac:"CS-445", takt:"13分钟",   done:"25", note:"正常", worker:"陈国富", total:"203", tool:"19.8扩孔刀\n镗刀，铰刀", life:"未换刀" },
+      { step:"另一面",   line:"新建线", mac:"CS-434", takt:"6分钟",    done:"25", note:"正常", worker:"陈国富", total:"203", tool:"17.8钻头/10铣刀", life:"未换刀" }
+    ]},
+    { no:"4", item:"奔驰", name:"齿圈", draw:"A1743532500CC", qty:"30", steps:[
+      { step:"车里孔",     line:"",   mac:"",       takt:"",       done:"", note:"", worker:"", total:"", tool:"", life:"" },
+      { step:"另一面",     line:"",   mac:"",       takt:"",       done:"", note:"", worker:"", total:"", tool:"", life:"" },
+      { step:"铣外圆槽",   line:"X3", mac:"2512070", takt:"",      done:"", note:"", worker:"", total:"", tool:"", life:"" },
+      { step:"铣滑块槽",   line:"X3", mac:"CS-340",  takt:"",      done:"", note:"", worker:"", total:"", tool:"", life:"" },
+      { step:"精车外圆槽", line:"X4", mac:"229098",  takt:"8分钟", done:"", note:"", worker:"", total:"", tool:"", life:"" },
+      { step:"铣内斜齿",   line:"X3", mac:"229098",  takt:"90分钟", done:"4", note:"正常", worker:"董文禄", total:"8", tool:"4mm球头铣刀", life:"未换刀" }
+    ]},
+    { no:"5", item:"孔辉", name:"左前减速器外筒壁", draw:"KH2957310-292L-FL", qty:"15", steps:[
+      { step:"铣轮廓钻孔", line:"X3", mac:"229098", takt:"",      done:"", note:"", worker:"", total:"", tool:"", life:"" },
+      { step:"车镀层",     line:"X4", mac:"CS-446", takt:"1分钟", done:"5", note:"正常", worker:"王健", total:"5", tool:"VCMT160406", life:"未换刀" }
+    ]}
+  ];
+
+  // HTML 转义；换行转换为 <br>（多行单元格，如两种刀具型号）
+  function cellHTML(v) {
+    return String(v == null ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/\n/g, "<br>");
+  }
+  function td(v, extra) {
+    return '<td contenteditable="true"' + (extra ? " " + extra : "") + ">" + cellHTML(v) + "</td>";
+  }
+
+  // 顶部标题行 + 列头行
+  function buildHeaderRows() {
+    let html = "<tr>"
+      + '<td class="title-cell" colspan="9" contenteditable="true">新产品加工完成报表</td>'
+      + '<td class="col-label">日期</td>'
+      + '<td contenteditable="true">2026/10/9</td>'
+      + '<td class="col-label">班组</td>'
+      + '<td colspan="3" contenteditable="true">甲班白班</td>'
+      + "</tr>";
+    html += "<tr>" + HEADERS.map(h => '<td class="col-label">' + h + "</td>").join("") + "</tr>";
+    return html;
+  }
+
+  // 按分组数据渲染（前 5 列使用 rowspan 合并）
+  function render() {
+    const body = document.getElementById("tableBody");
+    let html = buildHeaderRows();
+    groups.forEach(g => {
+      g.steps.forEach((s, i) => {
+        html += "<tr>";
+        if (i === 0) {
+          GROUP_COLS.forEach(k => {
+            html += td(g[k], 'rowspan="' + g.steps.length + '"');
+          });
+        }
+        STEP_COLS.forEach(k => { html += td(s[k]); });
+        html += "</tr>";
+      });
+    });
+    body.innerHTML = html;
+  }
+
+  // 将表格（含 rowspan/colspan）展开为 15 列矩形矩阵（导出 JSON 用）
+  function toMatrix() {
+    const table = document.getElementById("reportTable");
+    const matrix = [];
+    const occupied = Object.create(null);
+    Array.prototype.forEach.call(table.rows, (row, r) => {
+      matrix[r] = matrix[r] || [];
+      let c = 0;
+      Array.prototype.forEach.call(row.cells, cell => {
+        while (occupied[r + "_" + c]) c++;
+        const v = cell.innerText.replace(/ /g, " ").trim();
+        for (let rs = 0; rs < cell.rowSpan; rs++) {
+          for (let cs = 0; cs < cell.colSpan; cs++) {
+            matrix[r + rs] = matrix[r + rs] || [];
+            matrix[r + rs][c + cs] = v;
+            occupied[(r + rs) + "_" + (c + cs)] = 1;
+          }
+        }
+        c += cell.colSpan;
+      });
+    });
+    return matrix;
+  }
+
+  // ---------- 结构持久化 ----------
+  function persistStructure() {
+    try { localStorage.setItem(STRUCT_KEY, JSON.stringify(groups)); } catch (e) {}
+  }
+  function loadStructure() {
+    try {
+      const g = JSON.parse(localStorage.getItem(STRUCT_KEY) || "null");
+      if (Array.isArray(g) && g.length > 0 &&
+          g.every(x => x && Array.isArray(x.steps) && x.steps.length > 0)) {
+        groups = g;
+      }
+    } catch (e) {}
+  }
+
+  // ---------- 光标定位 ----------
+  function bindCursor() {
+    const mark = e => {
+      const td = e.target && e.target.closest ? e.target.closest("#tableBody td") : null;
+      if (td) {
+        cursorTr = td.parentNode;
+        if (cursorChangeCb) cursorChangeCb();
+      }
+    };
+    document.addEventListener("click", mark);
+    document.addEventListener("focusin", mark);
+  }
+
+  // 光标行 → 数据模型坐标 { g: 项目组下标, s: 工序下标 }；表头/无效行返回 null
+  function locateCursor() {
+    if (!cursorTr || !cursorTr.isConnected) return null;
+    const body = document.getElementById("tableBody");
+    const idx = Array.prototype.indexOf.call(body.rows, cursorTr) - 2; // 前两行为表头
+    if (idx < 0) return null;
+    let rest = idx;
+    for (let g = 0; g < groups.length; g++) {
+      const len = groups[g].steps.length;
+      if (rest < len) return { g: g, s: rest };
+      rest -= len;
+    }
+    return null;
+  }
+
+  // ---------- DOM → 模型同步（结构操作前收割最新编辑内容） ----------
+  function harvestDOM() {
+    const rows = document.getElementById("tableBody").rows;
+    let ptr = 2;
+    const val = td => td ? td.innerText.replace(/\u00a0/g, " ").replace(/\s+$/g, "") : "";
+    groups.forEach(g => {
+      g.steps.forEach((s, i) => {
+        const tr = rows[ptr++];
+        if (!tr) return;
+        if (i === 0) {
+          GROUP_COLS.forEach((k, ci) => { g[k] = val(tr.cells[ci]); });
+          STEP_COLS.forEach((k, ci) => { s[k] = val(tr.cells[5 + ci]); });
+        } else {
+          STEP_COLS.forEach((k, ci) => { s[k] = val(tr.cells[ci]); });
+        }
+      });
+    });
+  }
+
+  function blankStep() { const o = {}; STEP_COLS.forEach(k => { o[k] = ""; }); return o; }
+  function blankProject() { return { no: "", item: "", name: "", draw: "", qty: "", steps: [blankStep()] }; }
+  function renumber() { groups.forEach((g, i) => { g.no = String(i + 1); }); }
+
+  function afterOp() {
+    cursorTr = null;                       // 结构变化后原光标行已被重建，清空避免残留引用
+    if (cursorChangeCb) cursorChangeCb();
+  }
+
+  // ---------- 四个结构操作（均先收割 DOM，再改模型、重排序号、重渲染、持久化） ----------
+  function addProject() {
+    harvestDOM();
+    groups.push(blankProject());
+    renumber(); render(); persistStructure();
+    afterOp();
+  }
+
+  function deleteProject() {
+    const loc = locateCursor();
+    if (!loc) return false;
+    harvestDOM();
+    groups.splice(loc.g, 1);
+    renumber(); render(); persistStructure();
+    afterOp();
+    return true;
+  }
+
+  function addStepAfter() {
+    const loc = locateCursor();
+    if (!loc) return false;
+    harvestDOM();
+    groups[loc.g].steps.splice(loc.s + 1, 0, blankStep());
+    renumber(); render(); persistStructure();
+    afterOp();
+    return true;
+  }
+
+  function deleteStep() {
+    const loc = locateCursor();
+    if (!loc || groups[loc.g].steps.length <= 1) return false;
+    harvestDOM();
+    groups[loc.g].steps.splice(loc.s, 1);
+    renumber(); render(); persistStructure();
+    afterOp();
+    return true;
+  }
+
+  // ---------- 边界判断 ----------
+  function canOperate()   { return !!locateCursor(); }
+  function canDeleteStep() {
+    const loc = locateCursor();
+    return !!(loc && groups[loc.g].steps.length > 1);
+  }
+
+  // 由矩阵导入：每个数据行转为一个独立项目组（15 列，无跨行合并）
+  function importMatrix(matrix) {
+    if (!Array.isArray(matrix)) throw new Error("JSON 格式不正确：根节点应为数组");
+    const ng = [];
+    for (let r = 2; r < matrix.length; r++) {
+      const row = Array.isArray(matrix[r]) ? matrix[r] : [];
+      const g = blankProject();
+      GROUP_COLS.forEach((k, i) => { g[k] = row[i] == null ? "" : String(row[i]); });
+      const s = blankStep();
+      STEP_COLS.forEach((k, i) => { s[k] = row[5 + i] == null ? "" : String(row[5 + i]); });
+      g.steps = [s];
+      ng.push(g);
+    }
+    groups = ng;
+    cursorTr = null;
+    render(); persistStructure();
+  }
+
+  function setOnCursorChange(fn) { cursorChangeCb = fn; }
+
+  // 初始化：优先从本地持久化结构恢复，再渲染
+  function init() {
+    loadStructure();
+    render();
+    bindCursor();
+  }
+
+  return {
+    init: init,
+    render: render,
+    toMatrix: toMatrix,
+    importMatrix: importMatrix,
+    addProject: addProject,
+    deleteProject: deleteProject,
+    addStepAfter: addStepAfter,
+    deleteStep: deleteStep,
+    canOperate: canOperate,
+    canDeleteStep: canDeleteStep,
+    locateCursor: locateCursor,
+    setOnCursorChange: setOnCursorChange
+  };
+})();
+
+
+/* ================================================================
+ * 模块二：截图处理模块（CaptureModule）
+ * 纯原生 Canvas 矢量重绘方案：读取实时 DOM 表格内容与样式参数，
+ * 用 Canvas 2D API 逐单元格绘制边框/底色/文字 → 高清 PNG Blob。
+ * 不加载任何图片资源，Canvas 永远不会被污染（跨浏览器、离线可用）。
+ * ================================================================ */
+const CaptureModule = (() => {
+  const SCALE = 2;        // 2 倍像素密度，保证微信中文字清晰无锯齿
+  const PAD_X = 16;       // 截图区域左右内边距（与 #captureArea 一致）
+  const PAD_Y = 14;       // 截图区域上下内边距
+  const CELL_PAD_X = 6;   // 单元格内边距
+  const CELL_PAD_Y = 4;
+
+  const FONT_BODY  = '14px "SimSun","宋体","Songti SC",serif';
+  const FONT_HEAD  = 'bold 14px "SimSun","宋体","Songti SC",serif';
+  const FONT_TITLE = '30px "STXingkai","华文行楷","KaiTi","楷体",cursive';
+
+  // 按可用宽度逐字符贪心折行（与 CSS word-break:break-all 行为一致），尊重显式换行
+  function wrapLines(ctx, text, maxW) {
+    const lines = [];
+    String(text).split("\n").forEach(para => {
+      if (para === "") { lines.push(""); return; }
+      let cur = "";
+      for (const ch of para) {
+        if (cur && ctx.measureText(cur + ch).width > maxW) { lines.push(cur); cur = ch; }
+        else cur += ch;
+      }
+      lines.push(cur);
+    });
+    return lines;
+  }
+
+  /**
+   * 将报表区域实时渲染为 PNG Blob
+   * @param {HTMLElement} element #captureArea
+   * @returns {Promise<Blob>} image/png
+   */
+  async function capture(element) {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
+    const table = element.querySelector("table.report");
+    if (!table) throw new Error("未找到报表表格");
+
+    /* ---------- 1. 几何：列宽（取 colgroup 固定宽度） ---------- */
+    const colW = Array.prototype.map.call(
+      table.querySelectorAll("colgroup col"),
+      col => parseInt(col.style.width, 10) || 0
+    );
+    const colX = [0];
+    colW.forEach(w => colX.push(colX[colX.length - 1] + w));
+    const tableW = colX[colX.length - 1];
+
+    /* ---------- 2. 读取实时 DOM：单元格内容、行列位置、合并、样式 ---------- */
+    const rows = Array.prototype.slice.call(table.rows);
+    const occupied = Object.create(null);
+    const cells = [];
+    rows.forEach((tr, r) => {
+      let c = 0;
+      Array.prototype.forEach.call(tr.cells, cell => {
+        while (occupied[r + "_" + c]) c++;
+        cells.push({
+          r, c,
+          rs: cell.rowSpan || 1,
+          cs: cell.colSpan || 1,
+          text: cell.innerText.replace(/ /g, " ").replace(/\s+$/g, ""),
+          cls: cell.className || ""
+        });
+        for (let i = 0; i < (cell.rowSpan || 1); i++)
+          for (let j = 0; j < (cell.colSpan || 1); j++)
+            occupied[(r + i) + "_" + (c + j)] = 1;
+        c += cell.colSpan || 1;
+      });
+    });
+
+    /* ---------- 3. 行高：以页面实际渲染高度为准 ---------- */
+    const rowH = rows.map(tr => tr.offsetHeight);
+
+    /* ---------- 4. 离屏测量，准备 Canvas ---------- */
+    const measure = document.createElement("canvas").getContext("2d");
+    const fontOf = cell => cell.cls.indexOf("title-cell") >= 0 ? FONT_TITLE
+                         : cell.cls.indexOf("col-label") >= 0  ? FONT_HEAD : FONT_BODY;
+
+    // 预折行；跨行合并单元格若内容超高，则把高度差补到该合并块
+    cells.forEach(cell => {
+      measure.font = fontOf(cell);
+      const x1 = colX[cell.c], x2 = colX[cell.c + cell.cs];
+      const availW = Math.max(10, (x2 - x1) - CELL_PAD_X * 2);
+      cell.lines = wrapLines(measure, cell.text, availW);
+      const fs = cell.cls.indexOf("title-cell") >= 0 ? 30 : 14;
+      const lh = fs * 1.25;
+      cell.needH = Math.ceil(cell.lines.length * lh + CELL_PAD_Y * 2);
+      if (cell.rs > 1) {
+        let blockH = 0;
+        for (let i = 0; i < cell.rs; i++) blockH += rowH[cell.r + i] || 0;
+        if (cell.needH > blockH) {
+          rowH[cell.r + cell.rs - 1] = (rowH[cell.r + cell.rs - 1] || 0) + (cell.needH - blockH);
+        }
+      }
+    });
+
+    const rowY = [0];
+    rowH.forEach(h => rowY.push(rowY[rowY.length - 1] + h));
+    const tableH = rowY[rowY.length - 1];
+
+    // 底部备注（.foot-notes，grid-column 与表格列对齐）
+    const notes = Array.prototype.map.call(
+      element.querySelectorAll(".foot-notes span[contenteditable]"),
+      sp => {
+        const start = parseInt((sp.style.gridColumn || "").split("/")[0], 10);
+        return { text: sp.innerText.replace(/\s+$/g, ""), col: isNaN(start) ? 1 : start };
+      }
+    ).filter(n => n.text);
+
+    const footH = notes.length ? 14 * 1.25 + 8 : 0;
+    const W = tableW + PAD_X * 2;
+    const H = PAD_Y * 2 + tableH + footH;
+
+    /* ---------- 5. 高倍率 Canvas 绘制 ---------- */
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(W * SCALE);
+    canvas.height = Math.ceil(H * SCALE);
+    const ctx = canvas.getContext("2d");
+    ctx.scale(SCALE, SCALE);
+    ctx.textBaseline = "alphabetic";
+
+    // 白底（避免透明图在微信里变黑）
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+
+    // 5.1 单元格底色
+    cells.forEach(cell => {
+      ctx.fillStyle = cell.cls.indexOf("col-label") >= 0 ? "#f5f7fa" : "#ffffff";
+      ctx.fillRect(PAD_X + colX[cell.c], PAD_Y + rowY[cell.r],
+                   colX[cell.c + cell.cs] - colX[cell.c],
+                   rowY[cell.r + cell.rs] - rowY[cell.r]);
+    });
+
+    // 5.2 边框（border-collapse 效果；合并单元格内部不画线）
+    const blockedH = Object.create(null); // 被行合并遮住的横线: 边界行_列
+    const blockedV = Object.create(null); // 被列合并遮住的竖线: 行_边界列
+    cells.forEach(cell => {
+      for (let i = 1; i < cell.rs; i++)
+        for (let j = 0; j < cell.cs; j++)
+          blockedH[(cell.r + i) + "_" + (cell.c + j)] = 1;
+      for (let i = 0; i < cell.rs; i++)
+        for (let j = 1; j < cell.cs; j++)
+          blockedV[(cell.r + i) + "_" + (cell.c + j)] = 1;
+    });
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let y = 0; y <= rows.length; y++) {           // 横线
+      for (let j = 0; j < colW.length; j++) {
+        if (y > 0 && y < rows.length && blockedH[y + "_" + j]) continue;
+        ctx.moveTo(PAD_X + colX[j], PAD_Y + rowY[y] + 0.5);
+        ctx.lineTo(PAD_X + colX[j + 1], PAD_Y + rowY[y] + 0.5);
+      }
+    }
+    for (let x = 0; x <= colW.length; x++) {           // 竖线
+      for (let i = 0; i < rows.length; i++) {
+        if (x > 0 && x < colW.length && blockedV[i + "_" + x]) continue;
+        ctx.moveTo(PAD_X + colX[x] + 0.5, PAD_Y + rowY[i]);
+        ctx.lineTo(PAD_X + colX[x] + 0.5, PAD_Y + rowY[i + 1]);
+      }
+    }
+    ctx.stroke();
+
+    // 5.3 文字（水平+垂直居中，多行按真实折行结果）
+    cells.forEach(cell => {
+      if (!cell.text) return;
+      const isTitle = cell.cls.indexOf("title-cell") >= 0;
+      const fs = isTitle ? 30 : 14;
+      const lh = fs * 1.25;
+      ctx.font = fontOf(cell);
+      ctx.fillStyle = "#000000";
+      ctx.textAlign = "center";
+      try { ctx.letterSpacing = isTitle ? "3px" : "normal"; } catch (e) {}
+
+      const boxX = PAD_X + colX[cell.c], boxW = colX[cell.c + cell.cs] - colX[cell.c];
+      const boxY = PAD_Y + rowY[cell.r], boxH = rowY[cell.r + cell.rs] - rowY[cell.r];
+      const midX = boxX + boxW / 2;
+      const top0 = boxY + (boxH - cell.lines.length * lh) / 2;
+      cell.lines.forEach((line, i) => {
+        ctx.fillText(line, midX, top0 + i * lh + fs * 0.85, boxW - CELL_PAD_X * 2);
+      });
+    });
+    try { ctx.letterSpacing = "normal"; } catch (e) {}
+
+    // 5.4 底部备注文字
+    ctx.font = FONT_BODY;
+    ctx.fillStyle = "#000000";
+    ctx.textAlign = "left";
+    const footBaseY = PAD_Y + tableH + 8 + 14;
+    notes.forEach(n => {
+      ctx.fillText(n.text, PAD_X + colX[n.col - 1], footBaseY);
+    });
+
+    /* ---------- 6. 导出 PNG ---------- */
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (blob) resolve(blob);
+        else reject(new Error("Canvas 导出 PNG 失败"));
+      }, "image/png");
+    });
+  }
+
+  return { capture };
+})();
+
+
+/* ================================================================
+ * 模块三：剪贴板操作模块（ClipboardModule）
+ * 严格使用 W3C Clipboard API（navigator.clipboard.write + ClipboardItem）
+ * ================================================================ */
+const ClipboardModule = (() => {
+
+  // 是否支持向剪贴板写入 PNG 图片
+  function isImageWriteSupported() {
+    return !!(navigator.clipboard && window.ClipboardItem &&
+              typeof navigator.clipboard.write === "function");
+  }
+
+  // 写入 PNG；失败时抛出带错误类型的异常
+  async function writePng(blob) {
+    if (!isImageWriteSupported()) {
+      throw Object.assign(new Error("当前浏览器不支持 ClipboardItem 图片写入"), { code: "UNSUPPORTED" });
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    } catch (err) {
+      const e = err || new Error();
+      if (e.name === "NotAllowedError") {
+        throw Object.assign(new Error("剪贴板权限被拒绝或本次操作不是点击手势触发"), { code: "NOT_ALLOWED" });
+      }
+      throw Object.assign(new Error(e.message || "剪贴板写入失败"), { code: e.name || "ERROR" });
+    }
+  }
+
+  // 通用浏览器下载
+  function download(blob, filename) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+  }
+
+  function defaultFileName() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, "0");
+    return "加工完成报表_" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +
+           "_" + p(d.getHours()) + p(d.getMinutes()) + ".png";
+  }
+
+  return { isImageWriteSupported, writePng, download, defaultFileName };
+})();
+
+
+/* ================================================================
+ * 模块四：UI 交互模块（UIModule）
+ * 负责：按钮状态机（加载中/成功/失败）、状态提示、事件绑定
+ * ================================================================ */
+const UIModule = (() => {
+  const statusEl = document.getElementById("status");
+  const copyBtn  = document.getElementById("btnCopy");
+  const copyText = copyBtn.querySelector(".btn-text");
+
+  let timer = null;
+  function show(type, msg, sticky) {
+    statusEl.className = "status show " + type;
+    statusEl.textContent = msg;
+    clearTimeout(timer);
+    if (!sticky) {
+      timer = setTimeout(() => { statusEl.className = "status"; }, 8000);
+    }
+  }
+  function clear() { clearTimeout(timer); statusEl.className = "status"; statusEl.textContent = ""; }
+
+  function setLoading(loading, text) {
+    copyBtn.disabled = loading;
+    copyBtn.classList.toggle("loading", loading);
+    copyText.textContent = text || (loading ? "正在处理…" : "复制表格到剪贴板");
+  }
+
+  function advise(errCode) {
+    switch (errCode) {
+      case "NOT_ALLOWED":
+        return "解决建议：请直接用鼠标/手指点击本按钮触发（不要用脚本自动调用），并在浏览器弹出的权限提示中选择“允许”；或将浏览器升级到最新版。";
+      case "UNSUPPORTED":
+        return "解决建议：推荐改用 Chrome / Edge 最新版；当前已自动下载 PNG 图片，可在微信中直接发送该图片。";
+      case "SecurityError":
+        return "解决建议：请将本 HTML 文件保存到本地后双击打开（file://），或通过 https 访问。";
+      default:
+        return "解决建议：请刷新页面重试，或改用 Chrome / Edge 最新版；也可直接点击「下载PNG图片」后手动发送到微信。";
+    }
+  }
+
+  // 核心流程：截图 → 写剪贴板 →（失败）自动下载兜底
+  async function copyTable() {
+    clear();
+    setLoading(true, "正在生成高清图片…");
+    show("info", "正在截取表格并生成高清 PNG 图片，请稍候…");
+    let blob;
+    try {
+      blob = await CaptureModule.capture(document.getElementById("captureArea"));
+    } catch (e) {
+      setLoading(false);
+      show("error", "截图失败：" + (e.message || e) + " " + advise(""), true);
+      return;
+    }
+
+    setLoading(true, "正在写入剪贴板…");
+    try {
+      await ClipboardModule.writePng(blob);
+      setLoading(false);
+      const isMac = /mac/i.test(navigator.platform || "");
+      show("success",
+        "表格图片已复制到剪贴板！打开微信（PC 聊天框 / 文件传输助手按 " +
+        (isMac ? "Command+V" : "Ctrl+V") + "；手机端在输入框长按→粘贴）即可发送。图片为 2 倍高清 PNG，文字清晰。");
+    } catch (e) {
+      // 剪贴板不可用 / 权限拒绝：同一图片自动下载，保证流程不中断
+      ClipboardModule.download(blob, ClipboardModule.defaultFileName());
+      setLoading(false);
+      show("warn", "未能写入剪贴板（" + e.message + "）。高清 PNG 图片已自动下载，可直接在微信中发送。" + advise(e.code), true);
+    }
+  }
+
+  async function downloadOnly() {
+    clear();
+    show("info", "正在生成高清 PNG 图片…");
+    try {
+      const blob = await CaptureModule.capture(document.getElementById("captureArea"));
+      ClipboardModule.download(blob, ClipboardModule.defaultFileName());
+      show("success", "PNG 图片已生成并开始下载，可直接发送到微信。");
+    } catch (e) {
+      show("error", "生成图片失败：" + (e.message || e) + " " + advise(""), true);
+    }
+  }
+
+  // ---------- 项目 / 工序行结构操作 ----------
+  const btnAddProject = document.getElementById("btnAddProject");
+  const btnDelProject = document.getElementById("btnDelProject");
+  const btnAddStep    = document.getElementById("btnAddStep");
+  const btnDelStep    = document.getElementById("btnDelStep");
+
+  // 置灰/恢复按钮；disabledHint 为禁用时的友好提示（点击时弹出）
+  function setOpState(btn, enabled, enabledHint, disabledHint) {
+    btn.classList.toggle("is-disabled", !enabled);
+    btn.setAttribute("aria-disabled", String(!enabled));
+    btn.title = enabled ? enabledHint : disabledHint;
+    btn.dataset.disabledHint = disabledHint;
+  }
+
+  // 根据光标位置刷新四个按钮的可用状态
+  function updateOpButtons() {
+    const hasRow = TableModule.canOperate();
+    setOpState(btnDelProject, hasRow,
+      "删除当前光标所在的项目（含其全部工序行）",
+      "请先在表格中点击选择一个项目数据行");
+    setOpState(btnAddStep, hasRow,
+      "在当前光标所在工序行下方插入一个空白工序行",
+      "请先在表格中点击选择一个工序行");
+    const stepLoc = TableModule.locateCursor();
+    setOpState(btnDelStep, TableModule.canDeleteStep(),
+      "删除当前光标所在的工序行（不影响项目列）",
+      hasRow && stepLoc
+        ? "该项目仅剩一个工序行，如需删除请使用「删除项目」"
+        : "请先在表格中点击选择一个工序行");
+  }
+
+  // 结构操作统一入口：先等自动保存落盘 → 执行操作 → 重置自动保存基线
+  async function runStructureOp(btn, op, okMsg) {
+    if (btn.classList.contains("is-disabled")) {
+      show("warn", btn.dataset.disabledHint || "当前没有可操作的行。", true);
+      return;
+    }
+    await AutoSaveApp.flushAndSettle();
+    const ok = op();
+    AutoSaveApp.afterStructureChange();
+    updateOpButtons();
+    if (ok !== false) show("success", okMsg);
+  }
+
+  function bind() {
+    copyBtn.addEventListener("click", copyTable);
+    document.getElementById("btnDownload").addEventListener("click", downloadOnly);
+
+    btnAddProject.addEventListener("click", () =>
+      runStructureOp(btnAddProject, () => TableModule.addProject(),
+        "已在表格末尾新增一个空白项目行，可直接点击单元格编辑。"));
+    btnDelProject.addEventListener("click", () =>
+      runStructureOp(btnDelProject, () => TableModule.deleteProject(),
+        "已删除当前项目及其全部工序行。"));
+    btnAddStep.addEventListener("click", () =>
+      runStructureOp(btnAddStep, () => TableModule.addStepAfter(),
+        "已在当前工序行下方插入一个空白工序行。"));
+    btnDelStep.addEventListener("click", () =>
+      runStructureOp(btnDelStep, () => TableModule.deleteStep(),
+        "已删除当前工序行。"));
+    TableModule.setOnCursorChange(updateOpButtons);
+    updateOpButtons();
+
+    document.getElementById("btnSave").addEventListener("click", () => {
+      try {
+        const json = JSON.stringify(TableModule.toMatrix(), null, 2);
+        ClipboardModule.download(
+          new Blob([json], { type: "application/json;charset=utf-8" }),
+          ClipboardModule.defaultFileName().replace(/\.png$/, ".json")
+        );
+        show("success", "表格数据已导出为 JSON 文件。");
+      } catch (e) {
+        show("error", "导出失败：" + (e.message || e), true);
+      }
+    });
+
+    const fileInput = document.getElementById("fileInput");
+    document.getElementById("btnImport").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        await AutoSaveApp.flushAndSettle();
+        TableModule.importMatrix(JSON.parse(text));
+        AutoSaveApp.afterStructureChange();     // 以导入内容为新基线，重置自动保存暂存
+        updateOpButtons();
+        show("success", "JSON 数据已导入，表格已刷新（自动保存暂存已重置）。");
+      } catch (e) {
+        show("error", "导入失败：" + (e.message || e) + "，请确认是本页导出的 JSON 文件。", true);
+      } finally {
+        fileInput.value = "";
+      }
+    });
+
+    // 环境检测：不支持图片剪贴板或非安全上下文时给出前置提示
+    if (!window.isSecureContext) {
+      show("warn", "当前不是安全上下文（https 或本地文件），剪贴板写入可能被浏览器拦截；届时会自动下载 PNG 图片兜底。", true);
+    } else if (!ClipboardModule.isImageWriteSupported()) {
+      show("warn", "当前浏览器版本可能不支持直接写入图片剪贴板，点击复制时将自动下载高清 PNG 供手动发送；推荐使用最新版 Chrome / Edge。", true);
+    }
+  }
+
+  return { bind, show };
+})();
+
+
+/* ================================================================
+ * 模块五：自动保存核心（createAutoSaveCore）
+ * 纯逻辑、零 DOM 依赖，便于单元测试。
+ * 能力：输入防抖（默认 500ms）→ 批次合并（同键取最新值，多键合一次请求）
+ *       → 保存状态机（pending/saving/saved/error）→ 失败回滚暂存区 + 手动重试
+ *       → 并发保护（在途时新编辑进入下一批次，不丢失）
+ * 注意：《自动保存单元测试.html》内含本段源码副本，修改时请保持同步。
+ * ================================================================ */
+function createAutoSaveCore(opts) {
+  const debounceMs = opts.debounceMs == null ? 500 : opts.debounceMs;
+  const api = opts.api;                                        // { save(batch: Map) => Promise }
+  const setT = opts.setTimeoutFn || function (fn, ms) { return setTimeout(fn, ms); };
+  const clearT = opts.clearTimeoutFn || function (id) { clearTimeout(id); };
+  const onState = opts.onStateChange || function () {};        // 状态变化回调
+
+  let pending = new Map();   // 待保存暂存区：cellId -> 最新值（同键自动合并）
+  let saving = new Map();    // 在途批次：cellId -> 值
+  let statuses = new Map();  // cellId -> 'pending' | 'saving' | 'saved' | 'error'
+  let timer = null;
+  let retryQueued = false;   // 在途期间点击过重试 → 本批结束后自动重发
+  let lastError = null;
+  let lastSavedAt = null;
+
+  function clone(m) { return new Map(m); }
+
+  function getStats() {
+    let errorCount = 0;
+    statuses.forEach(s => { if (s === "error") errorCount++; });
+    return {
+      pendingCount: pending.size,
+      savingCount: saving.size,
+      errorCount: errorCount,
+      lastError: lastError,
+      lastSavedAt: lastSavedAt,
+      hasUnsaved: pending.size > 0 || saving.size > 0
+    };
+  }
+
+  function emit() { onState({ statuses: clone(statuses), stats: getStats() }); }
+
+  function schedule() {
+    if (timer) clearT(timer);
+    timer = setT(function () { timer = null; flush(); }, debounceMs);
+  }
+
+  // 记录一次单元格修改：合并同批次内容并重置防抖计时（频繁输入只保留最新值）
+  function recordChange(cellId, value) {
+    const id = String(cellId);
+    pending.set(id, String(value));
+    statuses.set(id, "pending");
+    schedule();
+    emit();
+  }
+
+  // 立即取消防抖并保存当前暂存区（页面切后台 / 手动触发时使用）
+  function flushNow() { return flush(); }
+
+  function flush() {
+    if (timer) { clearT(timer); timer = null; }
+    if (saving.size > 0 || pending.size === 0) return Promise.resolve();
+
+    const batch = new Map(pending);      // 合并本批次全部修改为一次请求
+    pending = new Map();
+    batch.forEach(function (_v, id) { statuses.set(id, "saving"); });
+    saving = batch;
+    emit();
+
+    return (async function () {
+      try {
+        await api.save(clone(batch));
+        batch.forEach(function (_v, id) {
+          if (statuses.get(id) === "saving") statuses.set(id, "saved");
+        });
+        lastError = null;
+        lastSavedAt = new Date();
+      } catch (err) {
+        lastError = err && err.message ? err.message : String(err);
+        batch.forEach(function (v, id) {
+          pending.set(id, v);            // 保存失败：回滚至暂存区等待重试
+          statuses.set(id, "error");
+        });
+      } finally {
+        saving = new Map();
+        emit();
+        let hasNormal = false;
+        statuses.forEach(function (s, id) {
+          if (pending.has(id) && s === "pending") hasNormal = true;
+        });
+        if (pending.size > 0 && (retryQueued || hasNormal)) {
+          retryQueued = false;
+          schedule();                    // 在途期间的并发编辑 → 自动排下一批次
+        }
+      }
+    })();
+  }
+
+  // 重试所有保存失败的内容（在途时先排队，本批结束后自动重发）
+  function retryFailed() {
+    if (saving.size > 0) { retryQueued = true; return Promise.resolve(); }
+    return flush();
+  }
+
+  // 未保存内容合集（待存 + 在途），供页面离开兜底持久化使用
+  function getPendingChanges() {
+    const m = new Map(saving);
+    pending.forEach(function (v, k) { m.set(k, v); });
+    return m;
+  }
+
+  function statusOf(cellId) { return statuses.get(String(cellId)) || "idle"; }
+
+  // 清空全部状态（导入 JSON 等场景重置基线）
+  function reset() {
+    if (timer) { clearT(timer); timer = null; }
+    pending = new Map(); saving = new Map(); statuses = new Map();
+    retryQueued = false; lastError = null; lastSavedAt = null;
+    emit();
+  }
+
+  return {
+    recordChange: recordChange,
+    flushNow: flushNow,
+    retryFailed: retryFailed,
+    getPendingChanges: getPendingChanges,
+    getStats: getStats,
+    statusOf: statusOf,
+    reset: reset
+  };
+}
+
+
+/* ================================================================
+ * 模块六：自动保存页面适配层（AutoSaveApp）
+ * 职责：为可编辑单元格分配稳定 ID、事件委托捕获输入、本地暂存 API、
+ *       单元格/行状态标记渲染、工具条状态牌、错误提示与重试、离开保护
+ * ================================================================ */
+const AutoSaveApp = (() => {
+  const STORE_KEY = "report_autosave_v1";
+  const DEBOUNCE_MS = 500;
+
+  let core = null;
+  let chipEl, chipTextEl, retryBtn;
+  let rafId = 0;
+  let latest = null;
+  let prevErrorCount = 0;
+
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  function readStore() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || "{}") || {}; }
+    catch (e) { return {}; }
+  }
+  function writeStore(obj) { localStorage.setItem(STORE_KEY, JSON.stringify(obj)); }
+
+  // 本地暂存版保存接口：模拟 250ms 接口耗时（防抖后仍合并为一次调用）。
+  // 接入真实后端时仅需将本对象替换为 fetch(...) 实现，签名保持 { save(batch) }；
+  // 若需离开页面兜底上报，可在 pagehide 中改用 navigator.sendBeacon。
+  const api = {
+    async save(batch) {
+      await delay(250);
+      const snap = readStore();
+      batch.forEach((v, k) => { snap[k] = v; });
+      writeStore(snap);   // 配额超限等异常会向上抛出 → 触发错误标记与重试流程
+    }
+  };
+
+  // 为所有可编辑单元格分配稳定 ID：表头 h列号 / 数据行 r行-列 / 底部备注 f序号
+  function ensureCellIds() {
+    const body = document.getElementById("tableBody");
+    Array.prototype.forEach.call(body.rows, (tr, rIdx) => {
+      Array.prototype.forEach.call(tr.cells, cell => {
+        if (cell.getAttribute("contenteditable") !== "true") return;
+        if (!cell.dataset.cid) {
+          cell.dataset.cid = rIdx < 2 ? "h" + cell.cellIndex : "r" + rIdx + "-" + cell.cellIndex;
+        }
+      });
+    });
+    document.querySelectorAll(".foot-notes span[contenteditable]").forEach((sp, i) => {
+      if (!sp.dataset.cid) sp.dataset.cid = "f" + i;
+    });
+  }
+
+  // 页面加载时，将本地暂存的历史修改回填到表格（刷新不丢数据）
+  function applySnapshot() {
+    const snap = readStore();
+    Object.keys(snap).forEach(cid => {
+      const el = document.querySelector('[data-cid="' + cid + '"]');
+      if (el) el.innerText = String(snap[cid] == null ? "" : snap[cid]);
+    });
+  }
+
+  // 事件委托：任意可编辑单元格输入即记录（input 事件冒泡，单监听器覆盖全表）
+  function bindInputDelegation() {
+    document.addEventListener("input", e => {
+      const el = e.target && e.target.closest ? e.target.closest("[data-cid]") : null;
+      if (!el || !core) return;
+      core.recordChange(el.dataset.cid, el.innerText.replace(/\u00a0/g, " "));
+    });
+  }
+
+  // 渲染合批：一帧内最多重绘一次，避免频繁输入造成卡顿
+  function renderState(payload) {
+    latest = payload;
+    if (rafId) return;
+    rafId = requestAnimationFrame(() => { rafId = 0; paint(latest); });
+  }
+
+  function paintChip(stats) {
+    chipEl.classList.remove("saved", "pending", "saving", "error");
+    retryBtn.hidden = true;
+    if (stats.errorCount > 0) {
+      chipEl.classList.add("error");
+      chipTextEl.textContent = stats.errorCount + " 项修改保存失败";
+      retryBtn.hidden = false;
+    } else if (stats.savingCount > 0) {
+      chipEl.classList.add("saving");
+      chipTextEl.textContent = "正在保存 " + stats.savingCount + " 项…";
+    } else if (stats.pendingCount > 0) {
+      chipEl.classList.add("pending");
+      chipTextEl.textContent = stats.pendingCount + " 项修改待保存";
+    } else if (stats.lastSavedAt) {
+      chipEl.classList.add("saved");
+      const p = n => String(n).padStart(2, "0");
+      chipTextEl.textContent = "已自动保存 " + p(stats.lastSavedAt.getHours()) + ":" +
+        p(stats.lastSavedAt.getMinutes()) + ":" + p(stats.lastSavedAt.getSeconds());
+    } else {
+      chipTextEl.textContent = "自动保存已开启";
+    }
+  }
+
+  function paint(payload) {
+    if (!payload) return;
+    const { statuses, stats } = payload;
+    const cellOf = cid => document.querySelector('[data-cid="' + cid + '"]');
+
+    // 1. 单元格级状态标记
+    statuses.forEach((st, cid) => {
+      const el = cellOf(cid);
+      if (!el) return;
+      el.classList.remove("as-pending", "as-saving", "as-saved", "as-error");
+      if (st === "pending" || st === "saving" || st === "error") el.classList.add("as-" + st);
+      else if (st === "saved") el.classList.add("as-saved");   // 播放一次绿色闪烁
+    });
+
+    // 2. 行级状态标记（该行存在未保存/失败单元格时着色）
+    const rowState = new Map();
+    statuses.forEach((st, cid) => {
+      if (st !== "pending" && st !== "saving" && st !== "error") return;
+      const el = cellOf(cid);
+      const tr = el && el.closest ? el.closest("tr") : null;
+      if (!tr) return;
+      const cur = rowState.get(tr) || { err: false };
+      if (st === "error") cur.err = true;
+      rowState.set(tr, cur);
+    });
+    document.querySelectorAll("tr.as-row-unsaved, tr.as-row-error").forEach(tr => {
+      tr.classList.remove("as-row-unsaved", "as-row-error");
+    });
+    rowState.forEach((s, tr) => tr.classList.add(s.err ? "as-row-error" : "as-row-unsaved"));
+
+    // 3. 工具条状态牌（保存成功为静默提示，不打断操作）
+    paintChip(stats);
+
+    // 4. 失败时的明确错误信息（常驻，直到恢复）
+    if (stats.errorCount > 0 && prevErrorCount === 0) {
+      UIModule.show("error", "自动保存失败：" + (stats.lastError || "未知错误") +
+        "。共 " + stats.errorCount + " 项修改未保存，可点击上方「重试」按钮重发，或继续编辑该单元格后自动重试。", true);
+    } else if (stats.errorCount === 0 && prevErrorCount > 0) {
+      UIModule.show("success", "自动保存已恢复：之前失败的修改已全部保存。");
+    }
+    prevErrorCount = stats.errorCount;
+  }
+
+  // 页面离开 / 路由跳转保护
+  function bindLifecycle() {
+    // 存在未保存内容时，刷新/关闭/跳转前弹出浏览器确认框
+    window.addEventListener("beforeunload", e => {
+      if (core && core.getStats().hasUnsaved) { e.preventDefault(); e.returnValue = ""; }
+    });
+    // 用户确认离开后（pagehide）：把未保存内容同步写入本地暂存，双保险防丢失
+    window.addEventListener("pagehide", () => {
+      if (!core) return;
+      const m = core.getPendingChanges();
+      if (!m.size) return;
+      try {
+        const snap = readStore();
+        m.forEach((v, k) => { snap[k] = v; });
+        writeStore(snap);
+      } catch (e) { /* 兜底尽力而为 */ }
+    });
+    // 切到后台时立即保存一次，缩小未保存窗口
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && core) core.flushNow();
+    });
+  }
+
+  function init() {
+    ensureCellIds();
+    applySnapshot();
+    chipEl = document.getElementById("autosaveChip");
+    chipTextEl = document.getElementById("autosaveText");
+    retryBtn = document.getElementById("btnRetrySave");
+    core = createAutoSaveCore({ api: api, debounceMs: DEBOUNCE_MS, onStateChange: renderState });
+    bindInputDelegation();
+    bindLifecycle();
+    retryBtn.addEventListener("click", () => {
+      UIModule.show("info", "正在重试保存未完成的修改…");
+      core.retryFailed();
+    });
+    renderState({ statuses: new Map(), stats: core.getStats() });
+  }
+
+  // 将暂存区立即落盘并等待在途保存完成（结构操作前调用，避免数据错位）
+  async function flushAndSettle() {
+    if (!core) return;
+    core.flushNow();
+    for (let i = 0; i < 60 && core.getStats().hasUnsaved; i++) await delay(50);
+  }
+
+  // 表格结构变化（增删项目/工序行、导入 JSON）后调用：
+  // 结构已随模型持久化 → 清除数据区（r*）暂存，仅保留表头（h*）与底部备注（f*）暂存
+  function afterStructureChange() {
+    if (!core) return;
+    try {
+      const snap = readStore();
+      const kept = {};
+      Object.keys(snap).forEach(k => { if (k[0] !== "r") kept[k] = snap[k]; });
+      writeStore(kept);
+    } catch (e) {}
+    prevErrorCount = 0;
+    core.reset();
+    ensureCellIds();
+    renderState({ statuses: new Map(), stats: core.getStats() });
+  }
+
+  return { init: init, flushAndSettle: flushAndSettle, afterStructureChange: afterStructureChange };
+})();
+
+/* ================= 启动 ================= */
+TableModule.init();
+UIModule.bind();
+AutoSaveApp.init();
+</script>
+</body>
+</html>
