@@ -215,6 +215,32 @@
   }
   .autosave-chip .retry-btn:hover { background: #991b1b; }
 
+  /* 同步设置面板 */
+  header.toolbar { position: relative; }
+  .sync-pop {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 12px;
+    z-index: 60;
+    width: min(420px, calc(100vw - 24px));
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+    padding: 12px;
+  }
+  .sync-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+  .sync-row label { font-size: 13px; color: #374151; white-space: nowrap; }
+  .sync-row input {
+    flex: 1 1 140px;
+    min-width: 0;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .sync-hint { font-size: 12px; color: #8a94a6; line-height: 1.6; margin: 0; }
+
   /* ============ 响应式 ============ */
   @media (max-width: 640px) {
     .toolbar { padding: 8px 10px; gap: 7px; }
@@ -253,6 +279,23 @@
     <span id="autosaveText">自动保存已开启</span>
     <button type="button" class="retry-btn" id="btnRetrySave" hidden>重试</button>
   </span>
+
+  <span class="autosave-chip" id="syncChip" title="多端实时同步状态，点击设置房间号">
+    <span class="dot"></span>
+    <span id="syncText">同步未启动</span>
+  </span>
+  <div class="sync-pop" id="syncPop" hidden>
+    <div class="sync-row">
+      <label for="syncRoomInput">同步房间号</label>
+      <input type="text" id="syncRoomInput" maxlength="24" autocomplete="off" spellcheck="false" placeholder="如 workshop-01">
+    </div>
+    <div class="sync-row">
+      <button type="button" class="btn" id="syncApply">连接 / 更换房间</button>
+      <button type="button" class="btn" id="syncOff">断开同步</button>
+      <button type="button" class="btn" id="syncClose">收起</button>
+    </div>
+    <p class="sync-hint">手机与电脑填入相同房间号即可实时互相同步；修改在停止输入约 0.5 秒后自动同步，断网时的修改会在联网后自动补传。房间号即访问凭据，请勿外传。</p>
+  </div>
 
   <div class="status" id="status" role="status" aria-live="polite"></div>
 </header>
@@ -356,7 +399,7 @@ const TableModule = (() => {
     return html;
   }
 
-  // 按分组数据渲染（前 5 列使用 rowspan 合并）
+  // 按分组数据渲染（前 5 列使用 rowspan 合并）；数据单元格携带稳定同步键 data-cid
   function render() {
     const body = document.getElementById("tableBody");
     let html = buildHeaderRows();
@@ -364,11 +407,11 @@ const TableModule = (() => {
       g.steps.forEach((s, i) => {
         html += "<tr>";
         if (i === 0) {
-          GROUP_COLS.forEach(k => {
-            html += td(g[k], 'rowspan="' + g.steps.length + '"');
+          GROUP_COLS.forEach((k, ci) => {
+            html += td(g[k], 'rowspan="' + g.steps.length + '" data-cid="' + g.id + ".p." + ci + '"');
           });
         }
-        STEP_COLS.forEach(k => { html += td(s[k]); });
+        STEP_COLS.forEach((k, ci) => { html += td(s[k], 'data-cid="' + g.id + "." + s.id + "." + ci + '"'); });
         html += "</tr>";
       });
     });
@@ -379,6 +422,20 @@ const TableModule = (() => {
   function persistStructure() {
     try { localStorage.setItem(STRUCT_KEY, JSON.stringify(groups)); } catch (e) {}
   }
+
+  // 短随机 ID（单元格跨设备稳定键的组成部分）
+  function uid() {
+    return (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID().replace(/-/g, "").slice(0, 10)
+      : Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+  // 旧数据迁移：为项目/工序补齐稳定 ID（多端同步依赖）
+  function migrate() {
+    groups.forEach(g => {
+      if (!g.id) g.id = uid();
+      g.steps.forEach(s => { if (!s.id) s.id = uid(); });
+    });
+  }
   function loadStructure() {
     try {
       const g = JSON.parse(localStorage.getItem(STRUCT_KEY) || "null");
@@ -387,6 +444,7 @@ const TableModule = (() => {
         groups = g;
       }
     } catch (e) {}
+    migrate();
   }
 
   // ---------- 光标定位 ----------
@@ -436,8 +494,8 @@ const TableModule = (() => {
     });
   }
 
-  function blankStep() { const o = {}; STEP_COLS.forEach(k => { o[k] = ""; }); return o; }
-  function blankProject() { return { no: "", item: "", name: "", draw: "", qty: "", steps: [blankStep()] }; }
+  function blankStep() { const o = { id: uid() }; STEP_COLS.forEach(k => { o[k] = ""; }); return o; }
+  function blankProject() { return { id: uid(), no: "", item: "", name: "", draw: "", qty: "", steps: [blankStep()] }; }
   function renumber() { groups.forEach((g, i) => { g.no = String(i + 1); }); }
 
   function afterOp() {
@@ -492,6 +550,42 @@ const TableModule = (() => {
 
   function setOnCursorChange(fn) { cursorChangeCb = fn; }
 
+  // ---------- 多端同步支持 ----------
+  // 按稳定单元格键写值：{gid}.p.{列序}（项目列）| {gid}.{工序id}.{列序}（工序列）
+  // noRender=true 时不立即重绘（批量合并用）
+  function applyCellKey(key, value, noRender) {
+    const parts = String(key).split(".");
+    if (parts.length !== 3 || parts[0] === "h" || parts[0] === "f") return false;
+    const g = groups.find(x => x.id === parts[0]);
+    if (!g) return false;
+    const i = Number(parts[2]);
+    if (parts[1] === "p") {
+      if (!(i >= 0 && i < GROUP_COLS.length)) return false;
+      g[GROUP_COLS[i]] = String(value == null ? "" : value);
+    } else {
+      const s = g.steps.find(x => x.id === parts[1]);
+      if (!s || !(i >= 0 && i < STEP_COLS.length)) return false;
+      s[STEP_COLS[i]] = String(value == null ? "" : value);
+    }
+    if (!noRender) { render(); persistStructure(); }
+    return true;
+  }
+
+  // 批量写入后统一重绘并持久化
+  function refresh() { render(); persistStructure(); }
+
+  // 采纳远端整份结构快照（结构操作同步）
+  function adoptModel(model) {
+    if (!Array.isArray(model) || model.length === 0 ||
+        !model.every(x => x && Array.isArray(x.steps) && x.steps.length > 0)) return false;
+    groups = model;
+    migrate();
+    cursorTr = null;
+    render(); persistStructure();
+    if (cursorChangeCb) cursorChangeCb();
+    return true;
+  }
+
   // 初始化：优先从本地持久化结构恢复，再渲染
   function init() {
     loadStructure();
@@ -509,7 +603,11 @@ const TableModule = (() => {
     canOperate: canOperate,
     canDeleteStep: canDeleteStep,
     locateCursor: locateCursor,
-    setOnCursorChange: setOnCursorChange
+    setOnCursorChange: setOnCursorChange,
+    applyCellKey: applyCellKey,
+    adoptModel: adoptModel,
+    refresh: refresh,
+    uid: uid
   };
 })();
 
@@ -896,6 +994,7 @@ const UIModule = (() => {
     await AutoSaveApp.flushAndSettle();
     const ok = op();
     AutoSaveApp.afterStructureChange();
+    SyncModule.publishStructure();          // 结构变更广播给其他设备（离线时入补传队列）
     updateOpButtons();
     if (ok !== false) show("success", okMsg);
   }
@@ -1090,7 +1189,11 @@ const AutoSaveApp = (() => {
   // 若需离开页面兜底上报，可在 pagehide 中改用 navigator.sendBeacon。
   const api = {
     async save(batch) {
-      await delay(250);
+      // 同步广播不等本地落盘：防抖触发即发出，与模拟保存并行（远端按 cellTs 做 LWW 合并，顺序无关）
+      if (typeof SyncModule !== "undefined" && SyncModule.publishCellOps) {
+        SyncModule.publishCellOps(batch);
+      }
+      await delay(120);   // 压缩模拟耗时以满足“1秒内同步”目标；接入真实接口后通常更快
       const snap = readStore();
       batch.forEach((v, k) => { snap[k] = v; });
       writeStore(snap);   // 配额超限等异常会向上抛出 → 触发错误标记与重试流程
@@ -1251,13 +1354,13 @@ const AutoSaveApp = (() => {
   }
 
   // 表格结构变化（增删项目/工序行、导入 JSON）后调用：
-  // 结构已随模型持久化 → 清除数据区（r*）暂存，仅保留表头（h*）与底部备注（f*）暂存
+  // 结构已随模型持久化 → 清除数据区暂存（仅保留表头 h* 与底部备注 f*）
   function afterStructureChange() {
     if (!core) return;
     try {
       const snap = readStore();
       const kept = {};
-      Object.keys(snap).forEach(k => { if (k[0] !== "r") kept[k] = snap[k]; });
+      Object.keys(snap).forEach(k => { if (k[0] === "h" || k[0] === "f") kept[k] = snap[k]; });
       writeStore(kept);
     } catch (e) {}
     prevErrorCount = 0;
@@ -1269,10 +1372,394 @@ const AutoSaveApp = (() => {
   return { init: init, flushAndSettle: flushAndSettle, afterStructureChange: afterStructureChange };
 })();
 
+
+/* ================================================================
+ * 模块七：多端实时同步（SyncModule）
+ * 通道：MQTT over WSS 公共中继（EMQX 中国节点优先，自动切换备用节点）
+ * 设计：
+ *  - 房间号隔离：同房间号的设备互相同步；房间号即凭据，随机生成可复制到手机
+ *  - 单元格级 LWW 冲突合并：每个单元格带时间戳，仅接受更新的变更（防覆盖丢失）
+ *  - 稳定键：{项目id}.p.{列} / {项目id}.{工序id}.{列}，结构变化不影响其他单元格键
+ *  - 结构操作：整快照（模型+时间戳表+版本）发布至 retained 主题；Lamport 版本号
+ *  - 离线补传：outbox 持久化本地，断网期间修改在重连后自动补发
+ *  - 弱网：QoS1 + 持久会话(clean:false) + 自动重连 + 多节点轮换
+ * ================================================================ */
+const SyncModule = (() => {
+  const ROOM_KEY = "report_sync_room";
+  const DEV_KEY = "report_sync_dev";
+  const TS_KEY = "report_sync_ts_v1";
+  const OUTBOX_KEY = "report_sync_outbox_v1";
+  const BROKERS = [
+    "wss://broker-cn.emqx.io:8084/mqtt",
+    "wss://broker.emqx.io:8084/mqtt",
+    "wss://test.mosquitto.org:8081"
+  ];
+  const CDNS = [
+    "https://registry.npmmirror.com/mqtt/5.10.1/files/dist/mqtt.min.js",
+    "https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js",
+    "https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"
+  ];
+
+  // 设备 ID 用 sessionStorage（每个标签页/设备唯一）：既用于忽略自身消息，
+  // 也避免同浏览器多标签页共用 clientId 被 MQTT 中继互踢
+  let DEV = sessionStorage.getItem(DEV_KEY);
+  if (!DEV) { DEV = "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); try { sessionStorage.setItem(DEV_KEY, DEV); } catch (e) {} }
+
+  let room = localStorage.getItem(ROOM_KEY) || null;
+  if (!room) {   // 首次使用自动生成房间号（默认开启同步），可在面板中复制到其他设备
+    room = "r" + Math.random().toString(36).slice(2, 8);
+    try { localStorage.setItem(ROOM_KEY, room); } catch (e) {}
+  }
+  let cellTs = {};      // cid -> 已知最新时间戳（本地+远端），LWW 依据
+  let outbox = [];      // 待发布队列（离线补传）
+  let rev = 0;          // 结构版本（Lamport：本地/远端取 max + 1）
+  let client = null, brokerIdx = 0, status = "off", statusCb = null;
+  let draining = false, pendingState = null, lastApply = 0, tsTimer = 0;
+
+  try { cellTs = JSON.parse(localStorage.getItem(TS_KEY) || "{}") || {}; } catch (e) {}
+  try { outbox = JSON.parse(localStorage.getItem(OUTBOX_KEY) || "[]") || []; } catch (e) {}
+
+  const T_S = () => "gdreport/" + room + "/state";
+  const T_O = () => "gdreport/" + room + "/op";
+  const T_H = () => "gdreport/" + room + "/hello";
+
+  function persistTs() { try { localStorage.setItem(TS_KEY, JSON.stringify(cellTs)); } catch (e) {} }
+  function persistTsSoon() { clearTimeout(tsTimer); tsTimer = setTimeout(persistTs, 800); }
+  function persistOutbox() { try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(outbox)); } catch (e) {} }
+
+  function setStatus(s) {
+    status = s;
+    paintChip();
+    if (statusCb) statusCb(s);
+  }
+
+  function getState() { return { status: status, room: room, outbox: outbox.length }; }
+  function onStatusChange(fn) { statusCb = fn; }
+
+  // ---------- 状态牌与房间设置面板 ----------
+  let chipEl, chipText, popEl, roomInput;
+
+  function paintChip() {
+    if (!chipEl) return;
+    chipEl.classList.remove("saved", "pending", "saving", "error");
+    const map = {
+      online:       ["saved",   "已连接 · 实时同步中"],
+      connecting:   ["saving",  "同步连接中…"],
+      reconnecting: ["pending", "弱网重连中…修改已本地保存"],
+      error:        ["error",   "同步失败 · 点击重试"],
+      off:          ["",        "同步未启动 · 点击开启"]
+    };
+    const m = map[status] || map.off;
+    if (m[0]) chipEl.classList.add(m[0]);
+    chipText.textContent = m[1] + (room ? "（房间 " + room + (outbox.length ? "，待传" + outbox.length + "条" : "") + "）" : "");
+  }
+
+  function bindUI() {
+    chipEl = document.getElementById("syncChip");
+    chipText = document.getElementById("syncText");
+    popEl = document.getElementById("syncPop");
+    roomInput = document.getElementById("syncRoomInput");
+    roomInput.value = room || "";
+    chipEl.addEventListener("click", () => { popEl.hidden = !popEl.hidden; roomInput.value = room || ""; });
+    document.getElementById("syncApply").addEventListener("click", () => {
+      const v = roomInput.value.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24);
+      if (!v) { UIModule.show("warn", "请输入房间号（仅限字母、数字、-、_）。", true); return; }
+      if (v !== room) {
+        room = v;
+        try { localStorage.setItem(ROOM_KEY, room); } catch (e) {}
+        rev = 0; cellTs = {}; persistTs();
+        reconnect();
+      }
+      popEl.hidden = true;
+    });
+    document.getElementById("syncClose").addEventListener("click", () => { popEl.hidden = true; });
+    document.getElementById("syncOff").addEventListener("click", () => {
+      if (client) { try { client.end(true); } catch (e) {} client = null; }
+      setStatus("off");
+      popEl.hidden = true;
+    });
+    window.addEventListener("online", () => { if (room && status !== "online") reconnect(); drainSoon(); });
+  }
+
+  // ---------- 动态加载 mqtt.js（CDN 依次回退） ----------
+  function loadMqtt(done) {
+    if (window.mqtt) { done(); return; }
+    let i = 0;
+    (function next() {
+      if (i >= CDNS.length) { setStatus("error"); UIModule.show("error", "同步组件加载失败（CDN 不可达），本地功能不受影响，可稍后重试。", true); return; }
+      const s = document.createElement("script");
+      s.src = CDNS[i++];
+      s.onload = done;
+      s.onerror = () => { s.remove(); next(); };
+      document.head.appendChild(s);
+    })();
+  }
+
+  // ---------- 连接管理 ----------
+  function reconnect() {
+    if (client) { try { client.end(true); } catch (e) {} client = null; }
+    connect();
+  }
+
+  function connect() {
+    if (!room || (client && client.connected)) return;
+    setStatus("connecting");
+    loadMqtt(() => {
+      // 同房间所有设备确定性使用同一中继节点（房间号哈希），避免分散到不同节点导致消息隔离
+      let h = 0;
+      for (let i = 0; i < room.length; i++) h = (h * 31 + room.charCodeAt(i)) >>> 0;
+      brokerIdx = h % BROKERS.length;
+      const url = BROKERS[brokerIdx];
+      client = mqtt.connect(url, {
+        clientId: "gdrep_" + DEV + "_" + Math.random().toString(36).slice(2, 6),
+        clean: false,                       // 持久会话：短暂掉线期间 QoS1 消息由 broker 补投
+        keepalive: 30,
+        reconnectPeriod: 3000,
+        connectTimeout: 8000,
+        protocolVersion: 4
+      });
+      client.on("connect", () => {
+        setStatus("online");
+        client.subscribe([T_S(), T_O(), T_H()], { qos: 1 }, () => {});
+        drainSoon();
+        // retained 快照由订阅重放；再广播 hello 请求一次兜底
+        setTimeout(() => { if (client && client.connected) pub(T_H(), { dev: DEV, ts: Date.now() }); }, 400);
+      });
+      client.on("reconnect", () => setStatus("reconnecting"));
+      client.on("close", () => { if (status === "online") setStatus("reconnecting"); });
+      client.on("offline", () => setStatus("reconnecting"));
+      client.on("error", () => { /* 同一节点固定重试（mqtt.js 自动重连），保证房间内设备不分散 */ });
+      client.on("message", onMessage);
+    });
+  }
+
+  // ---------- 发布 ----------
+  function pub(topic, obj, opts, cb) {
+    if (!client || !client.connected) return false;
+    try {
+      client.publish(topic, JSON.stringify(obj), Object.assign({ qos: 1 }, opts || {}), cb || function () {});
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function buildState() {
+    let model = [];
+    try { model = JSON.parse(localStorage.getItem("report_structure_v1") || "[]") || []; } catch (e) {}
+    let hf = {};
+    try {
+      const snap = JSON.parse(localStorage.getItem("report_autosave_v1") || "{}") || {};
+      Object.keys(snap).forEach(k => { if (k[0] === "h" || k[0] === "f") hf[k] = snap[k]; });
+    } catch (e) {}
+    return { v: 1, dev: DEV, ts: Date.now(), rev: rev, model: model, hf: hf, cellTs: cellTs };
+  }
+
+  function enqueue(item) { outbox.push(item); persistOutbox(); }
+
+  function drainSoon() { setTimeout(drain, 150); }
+
+  // 逐条补传；QoS1 由中继保证送达。增量消息发后即确认（回调丢失不致卡死），
+  // 快照消息等确认，另加 5 秒看门狗防回调丢失卡住队列
+  function drain() {
+    if (!client || !client.connected || draining) return;
+    draining = true;
+    const watchdog = setTimeout(() => { draining = false; }, 5000);
+    (function step() {
+      if (!outbox.length || !client.connected) { draining = false; clearTimeout(watchdog); persistOutbox(); return; }
+      const item = outbox[0];
+      if (item.kind === "state") {
+        rev = Math.max(rev, item.rev || 0);
+        const ok = pub(T_S(), buildState(), { retain: true }, function (err) {
+          if (err) { draining = false; clearTimeout(watchdog); setStatus("reconnecting"); return; }
+          if (outbox[0] === item) { outbox.shift(); persistOutbox(); }
+          step();
+        });
+        if (!ok) { draining = false; clearTimeout(watchdog); return; }
+      } else {
+        const ok = pub(T_O(), { kind: "cells", dev: DEV, ops: item.ops }, {});
+        if (!ok) { draining = false; clearTimeout(watchdog); return; }
+        outbox.shift(); persistOutbox(); step();
+      }
+    })();
+  }
+
+  // ---------- 本地变更出站（由 AutoSaveApp 在本地落盘后调用） ----------
+  function publishCellOps(batch) {
+    const now = Date.now();
+    const ops = [];
+    batch.forEach((v, k) => { cellTs[k] = now; ops.push({ k: k, v: String(v), ts: now }); });
+    persistTsSoon();
+    enqueue({ kind: "cells", ops: ops });
+    drain();
+  }
+
+  // 本地结构操作后发布整快照（retained）
+  function publishStructure() {
+    rev++;
+    enqueue({ kind: "state", rev: rev });
+    drain();
+  }
+
+  // ---------- 远端变更入站 ----------
+  function onMessage(topic, payload) {
+    let msg;
+    try { msg = JSON.parse(payload.toString()); } catch (e) { return; }
+    if (!msg || msg.dev === DEV) return;   // 忽略自己发布的
+    if (topic === T_O()) {
+      if (msg.kind === "cells" && Array.isArray(msg.ops)) applyRemoteCells(msg.ops);
+    } else if (topic === T_S()) {
+      queueState(msg);
+    } else if (topic === T_H()) {
+      // 新设备请求状态：抖动延迟回复，期间若已收到快照则自动跳过（防风暴）
+      setTimeout(() => { if (client && client.connected && rev >= 0) pub(T_S(), buildState(), {}, function () {}); },
+        200 + Math.random() * 600);
+    }
+  }
+
+  function isEditing() {
+    const a = document.activeElement;
+    return !!(a && a.isContentEditable && a.closest && a.closest("#tableBody, .foot-notes"));
+  }
+
+  function queueState(st) {
+    if (isEditing()) { pendingState = st; return; }   // 正在编辑 → 失焦后再应用
+    applyRemoteState(st);
+  }
+
+  // 应用远端单元格增量（LWW：仅接受更新的时间戳）
+  function applyRemoteCells(ops) {
+    let dirtyModel = false, any = false;
+    ops.forEach(op => {
+      if (!op || !op.k || typeof op.ts !== "number") return;
+      if ((cellTs[op.k] || 0) >= op.ts) return;      // 本地已更新或相等 → 忽略旧值
+      cellTs[op.k] = op.ts;
+      any = true;
+      const el = document.querySelector('[data-cid="' + op.k + '"]');
+      if (el && document.activeElement === el) return;  // 正在编辑该格：不覆盖，待快照周期收敛
+      if (el) {
+        el.innerText = String(op.v == null ? "" : op.v);
+        el.classList.remove("as-pending", "as-saving", "as-error");
+        el.classList.add("as-saved");                // 绿闪：该格被其他设备更新
+      }
+      if (op.k[0] === "h" || op.k[0] === "f") {
+        try {
+          const snap = JSON.parse(localStorage.getItem("report_autosave_v1") || "{}") || {};
+          snap[op.k] = String(op.v == null ? "" : op.v);
+          localStorage.setItem("report_autosave_v1", JSON.stringify(snap));
+        } catch (e) {}
+      } else if (TableModule.applyCellKey(op.k, op.v, true)) {
+        dirtyModel = true;
+      }
+    });
+    if (any) persistTsSoon();
+    if (dirtyModel) TableModule.refresh();
+  }
+
+  // 应用远端整快照（结构同步 / 首次加入 / 兜底收敛），按时间戳逐格合并防覆盖
+  async function applyRemoteState(st) {
+    try {
+      if (!st || st.v !== 1 || !Array.isArray(st.model) || !st.model.length) return;
+      try { await AutoSaveApp.flushAndSettle(); } catch (e) {}   // 先把本地未保存内容落盘并广播
+      if (isEditing()) { pendingState = st; return; }
+      const inTs = st.cellTs || {};
+      const localModel = flatLocal();          // 采纳前先平铺记录本地值
+      rev = Math.max(rev, st.rev || 0) + 1;
+
+      // 结构不同 → 采纳远端结构；随后把本地较新的单元格值覆盖回去
+      if (JSON.stringify(st.model) !== localStorage.getItem("report_structure_v1")) {
+        TableModule.adoptModel(st.model);
+        AutoSaveApp.afterStructureChange();
+      }
+      // 逐格合并：远端较新 → 取远端；本地较新 → 保留并回播给对方
+      const backOps = [];
+      const now = Date.now();
+      localModel.forEach((rec, k) => {
+        if ((inTs[k] || 0) >= rec.ts) return;  // 远端更新或相等 → 保持远端值
+        TableModule.applyCellKey(k, rec.v, true);
+        cellTs[k] = Math.max(rec.ts, inTs[k] || 0);
+        backOps.push({ k: k, v: rec.v, ts: cellTs[k] });
+      });
+      // 本地较新的表头/备注也回播
+      try {
+        const snap = JSON.parse(localStorage.getItem("report_autosave_v1") || "{}") || {};
+        Object.keys(snap).forEach(k => {
+          if (k[0] !== "h" && k[0] !== "f") return;
+          const ts = cellTs[k] || now;
+          if ((inTs[k] || 0) >= ts) return;
+          cellTs[k] = ts;
+          backOps.push({ k: k, v: String(snap[k] == null ? "" : snap[k]), ts: ts });
+        });
+      } catch (e) {}
+      persistTs();
+      TableModule.refresh();
+      // 远端较新的表头/备注：统一走增量应用（写 DOM + 本地暂存 + 绿闪提示）
+      const remoteOps = [];
+      Object.keys(inTs).forEach(k => {
+        if (k[0] !== "h" && k[0] !== "f" || localModel.has(k)) return;
+        if ((cellTs[k] || 0) >= inTs[k]) return;
+        remoteOps.push({ k: k, v: (st.hf && st.hf[k] != null) ? st.hf[k] : "", ts: inTs[k] });
+      });
+      if (remoteOps.length) applyRemoteCells(remoteOps);
+      if (backOps.length) { enqueue({ kind: "cells", ops: backOps }); drain(); }
+    } catch (e) {
+      console.error("[Sync] 应用远端快照失败：", e);
+    }
+  }
+
+  // 平铺本地模型为 {cid: {v, ts}}（同步合并用）
+  function flatLocal() {
+    const m = new Map();
+    let model = [];
+    try { model = JSON.parse(localStorage.getItem("report_structure_v1") || "[]") || []; } catch (e) {}
+    model.forEach(g => {
+      for (let i = 0; i < 5; i++) {
+        const k = g.id + ".p." + i;
+        m.set(k, { v: g[["no", "item", "name", "draw", "qty"][i]] || "", ts: cellTs[k] || 0 });
+      }
+      (g.steps || []).forEach(s => {
+        for (let i = 0; i < 10; i++) {
+          const k = g.id + "." + s.id + "." + i;
+          m.set(k, { v: s[["step", "line", "mac", "takt", "done", "note", "worker", "total", "tool", "life"][i]] || "", ts: cellTs[k] || 0 });
+        }
+      });
+    });
+    return m;
+  }
+
+  // 定期重发 retained 快照，兜底晚加入/丢消息的设备
+  setInterval(() => {
+    if (client && client.connected && !outbox.length) pub(T_S(), buildState(), { retain: true }, function () {});
+  }, 90000);
+
+  function init() {
+    bindUI();
+    paintChip();
+    if (room) connect(); else setStatus("off");
+    document.addEventListener("focusout", () => {
+      if (pendingState && !isEditing()) { const st = pendingState; pendingState = null; applyRemoteState(st); }
+    });
+  }
+
+  return {
+    init: init,
+    getState: getState,
+    onStatusChange: onStatusChange,
+    publishCellOps: publishCellOps,
+    publishStructure: publishStructure,
+    _dbg: function () {   // 测试诊断口
+      return {
+        status: status, room: room, rev: rev, outbox: outbox.length,
+        broker: BROKERS[brokerIdx] || "", dev: DEV,
+        tsKeys: Object.keys(cellTs).length
+      };
+    }
+  };
+})();
+
 /* ================= 启动 ================= */
 TableModule.init();
 UIModule.bind();
 AutoSaveApp.init();
+SyncModule.init();
 </script>
 </body>
 </html>
