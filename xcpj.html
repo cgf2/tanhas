@@ -607,6 +607,7 @@ const TableModule = (() => {
     applyCellKey: applyCellKey,
     adoptModel: adoptModel,
     refresh: refresh,
+    persistStructure: persistStructure,
     uid: uid
   };
 })();
@@ -1197,6 +1198,11 @@ const AutoSaveApp = (() => {
       const snap = readStore();
       batch.forEach((v, k) => { snap[k] = v; });
       writeStore(snap);   // 配额超限等异常会向上抛出 → 触发错误标记与重试流程
+      // 关键：本地编辑必须同步写入数据模型（单一事实来源）。
+      // 否则快照构建/合并保护读不到键入值，远端快照采纳时会把这些值重置掉。
+      let dirty = false;
+      batch.forEach((v, k) => { if (TableModule.applyCellKey(k, v, true)) dirty = true; });
+      if (dirty) TableModule.persistStructure();
     }
   };
 
@@ -1382,7 +1388,10 @@ const AutoSaveApp = (() => {
  *  - 稳定键：{项目id}.p.{列} / {项目id}.{工序id}.{列}，结构变化不影响其他单元格键
  *  - 结构操作：整快照（模型+时间戳表+版本）发布至 retained 主题；Lamport 版本号
  *  - 离线补传：outbox 持久化本地，断网期间修改在重连后自动补发
- *  - 弱网：QoS1 + 持久会话(clean:false) + 自动重连 + 多节点轮换
+ *  - 弱网：QoS1 + 持久会话(clean:false) + 自动重连 + 确定性时间桶节点轮换 +
+ *          回前台恢复 + 60 秒卡死看门狗强制重建
+ *  - 快照治愈：快照含完整模型与时间戳表，结构相同也按 ts 合并数据区，
+ *          错过的增量由 hello/ack 快照自动补齐
  * ================================================================ */
 const SyncModule = (() => {
   const ROOM_KEY = "report_sync_room";
@@ -1414,7 +1423,7 @@ const SyncModule = (() => {
   let outbox = [];      // 待发布队列（离线补传）
   let rev = 0;          // 结构版本（Lamport：本地/远端取 max + 1）
   let client = null, brokerIdx = 0, status = "off", statusCb = null;
-  let draining = false, pendingState = null, lastApply = 0, tsTimer = 0;
+  let draining = false, pendingState = null, lastApply = 0, tsTimer = 0, stuckSince = 0;
 
   try { cellTs = JSON.parse(localStorage.getItem(TS_KEY) || "{}") || {}; } catch (e) {}
   try { outbox = JSON.parse(localStorage.getItem(OUTBOX_KEY) || "[]") || []; } catch (e) {}
@@ -1469,6 +1478,8 @@ const SyncModule = (() => {
         try { localStorage.setItem(ROOM_KEY, room); } catch (e) {}
         rev = 0; cellTs = {}; persistTs();
         reconnect();
+      } else if (status === "off") {
+        reconnect();   // 手动断开后，用相同房间号可重新开启同步
       }
       popEl.hidden = true;
     });
@@ -1496,8 +1507,18 @@ const SyncModule = (() => {
   }
 
   // ---------- 连接管理 ----------
+  // 房间号哈希 + 5 分钟确定性时间桶选择中继节点：
+  // 所有设备按同一时钟同步换节点，既保证同房间不分散（防消息隔离），
+  // 又能在某个节点宕机/封禁时于数分钟内全网自动迁移，不会永久卡死在一个节点。
+  function nodeForRoom() {
+    let h = 0;
+    for (let i = 0; i < room.length; i++) h = (h * 31 + room.charCodeAt(i)) >>> 0;
+    return (h + Math.floor(Date.now() / 300000)) % BROKERS.length;
+  }
+
   function reconnect() {
     if (client) { try { client.end(true); } catch (e) {} client = null; }
+    stuckSince = 0;
     connect();
   }
 
@@ -1505,21 +1526,20 @@ const SyncModule = (() => {
     if (!room || (client && client.connected)) return;
     setStatus("connecting");
     loadMqtt(() => {
-      // 同房间所有设备确定性使用同一中继节点（房间号哈希），避免分散到不同节点导致消息隔离
-      let h = 0;
-      for (let i = 0; i < room.length; i++) h = (h * 31 + room.charCodeAt(i)) >>> 0;
-      brokerIdx = h % BROKERS.length;
+      if (!room) return;
+      brokerIdx = nodeForRoom();
       const url = BROKERS[brokerIdx];
       client = mqtt.connect(url, {
         clientId: "gdrep_" + DEV + "_" + Math.random().toString(36).slice(2, 6),
         clean: false,                       // 持久会话：短暂掉线期间 QoS1 消息由 broker 补投
         keepalive: 30,
-        reconnectPeriod: 3000,
+        reconnectPeriod: 5000,
         connectTimeout: 8000,
         protocolVersion: 4
       });
       client.on("connect", () => {
         setStatus("online");
+        stuckSince = 0;
         client.subscribe([T_S(), T_O(), T_H()], { qos: 1 }, () => {});
         drainSoon();
         // retained 快照由订阅重放；再广播 hello 请求一次兜底
@@ -1528,10 +1548,29 @@ const SyncModule = (() => {
       client.on("reconnect", () => setStatus("reconnecting"));
       client.on("close", () => { if (status === "online") setStatus("reconnecting"); });
       client.on("offline", () => setStatus("reconnecting"));
-      client.on("error", () => { /* 同一节点固定重试（mqtt.js 自动重连），保证房间内设备不分散 */ });
+      client.on("error", () => { /* mqtt.js 自动重试当前节点；节点级故障由时间桶轮换与看门狗兜底 */ });
       client.on("message", onMessage);
     });
   }
+
+  // 连接可靠性看门狗（15 秒一查）：
+  // ① 连接中/重连中持续超 60 秒 → 强制销毁重建（换新 clientId，防中继防抖封禁卡死）
+  // ② 已连接但当前应处的节点已随时间桶变化 → 全网设备同步迁移到新节点
+  setInterval(() => {
+    if (!room || status === "off") return;
+    if (status === "online") {
+      if (client && client.connected && nodeForRoom() !== brokerIdx) reconnect();
+      return;
+    }
+    if (!client) {   // client 为空且不在 off/error：loadMqtt 失败或连接流程中断 → 重新拉起
+      if (status === "connecting" || status === "reconnecting") { stuckSince = stuckSince || Date.now(); if (Date.now() - stuckSince > 60000) reconnect(); }
+      return;
+    }
+    if (status === "connecting" || status === "reconnecting") {
+      stuckSince = stuckSince || Date.now();
+      if (Date.now() - stuckSince > 60000) reconnect();
+    } else stuckSince = 0;
+  }, 15000);
 
   // ---------- 发布 ----------
   function pub(topic, obj, opts, cb) {
@@ -1665,9 +1704,11 @@ const SyncModule = (() => {
       rev = Math.max(rev, st.rev || 0) + 1;
 
       // 结构不同 → 采纳远端结构；随后把本地较新的单元格值覆盖回去
+      let adopted = false;
       if (JSON.stringify(st.model) !== localStorage.getItem("report_structure_v1")) {
         TableModule.adoptModel(st.model);
         AutoSaveApp.afterStructureChange();
+        adopted = true;
       }
       // 逐格合并：远端较新 → 取远端；本地较新 → 保留并回播给对方
       const backOps = [];
@@ -1698,6 +1739,28 @@ const SyncModule = (() => {
         if ((cellTs[k] || 0) >= inTs[k]) return;
         remoteOps.push({ k: k, v: (st.hf && st.hf[k] != null) ? st.hf[k] : "", ts: inTs[k] });
       });
+      // 远端较新的数据区单元格：结构相同未采纳模型时，从快照模型取值应用。
+      // 没有这一步，错过的增量消息将永远无法被快照治愈（双端数据不一致的根源之一）。
+      if (!adopted) {
+        const valMap = {};
+        st.model.forEach(g => {
+          for (let i = 0; i < 5; i++) valMap[g.id + ".p." + i] = g[["no", "item", "name", "draw", "qty"][i]] || "";
+          (g.steps || []).forEach(s => {
+            for (let i = 0; i < 10; i++) valMap[g.id + "." + s.id + "." + i] = s[["step", "line", "mac", "takt", "done", "note", "worker", "total", "tool", "life"][i]] || "";
+          });
+        });
+        Object.keys(inTs).forEach(k => {
+          if (k[0] === "h" || k[0] === "f" || !(k in valMap)) return;
+          if ((cellTs[k] || 0) >= inTs[k]) return;
+          remoteOps.push({ k: k, v: valMap[k], ts: inTs[k] });
+        });
+      } else {
+        // 已采纳模型：数据区值已随模型就位，补齐时间戳防同刻增量被重复接受
+        Object.keys(inTs).forEach(k => {
+          if (k[0] === "h" || k[0] === "f") return;
+          if ((cellTs[k] || 0) < inTs[k]) cellTs[k] = inTs[k];
+        });
+      }
       if (remoteOps.length) applyRemoteCells(remoteOps);
       if (backOps.length) { enqueue({ kind: "cells", ops: backOps }); drain(); }
     } catch (e) {
@@ -1725,10 +1788,9 @@ const SyncModule = (() => {
     return m;
   }
 
-  // 定期重发 retained 快照，兜底晚加入/丢消息的设备
-  setInterval(() => {
-    if (client && client.connected && !outbox.length) pub(T_S(), buildState(), { retain: true }, function () {});
-  }, 90000);
+  // 注：不做周期性 retained 快照重发——数据陈旧的设备会把房间快照污染回旧值，
+  // 导致其他设备刷新后采纳到陈旧数据（"刷新后重置为初始值"的放大器）。
+  // 兜底恢复由 hello/ack 应答（非 retained，接收方按 ts 合并）+ retained 结构快照承担。
 
   function init() {
     bindUI();
@@ -1736,6 +1798,13 @@ const SyncModule = (() => {
     if (room) connect(); else setStatus("off");
     document.addEventListener("focusout", () => {
       if (pendingState && !isEditing()) { const st = pendingState; pendingState = null; applyRemoteState(st); }
+    });
+    // 手机切后台/锁屏会挂起 WebSocket，回前台时主动恢复连接并补传离线队列
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden || !room) return;
+      if (!client) { if (status !== "off" && status !== "error") reconnect(); return; }
+      if (!client.connected) { if (!client.reconnecting) reconnect(); }
+      else drainSoon();
     });
   }
 
