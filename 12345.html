@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>几何计算器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  height: 100dvh;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding: 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+h1 {
+  text-align: center;
+  font-size: 0.9em;
+  padding: 4px 0;
+  color: #0f0;
+  text-shadow: 0 0 10px rgba(0,255,0,0.3);
+  flex-shrink: 0;
+}
+
+/* 图标标签栏 */
+.icon-tabs {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  gap: 6px;
+  padding: 4px 0;
+  scroll-snap-type: x mandatory;
+  flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
+}
+.icon-tabs::-webkit-scrollbar { display: none; }
+.icon-tab {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #16213e;
+  border: 2px solid #0f3460;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  scroll-snap-align: center;
+}
+.icon-tab.active {
+  background: #0f3460;
+  border-color: #0f0;
+  box-shadow: 0 0 8px rgba(0,255,0,0.4);
+}
+.icon-tab svg {
+  width: 28px;
+  height: 28px;
+  fill: #ccc;
+}
+.icon-tab.active svg { fill: #0f0; }
+
+/* 显示屏 */
+.display {
+  background: #0a0a1a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0;
+  border: 1.5px solid #0f3460;
+  flex-shrink: 0;
+  cursor: pointer;
+  position: relative;
+}
+.display .expr {
+  font-size: 0.7em;
+  color: #888;
+  min-height: 16px;
+  word-break: break-all;
+  text-align: right;
+  font-family: "Courier New", monospace;
+}
+.display .result {
+  font-size: 1em;
+  color: #0f0;
+  min-height: 24px;
+  word-break: break-all;
+  margin-top: 2px;
+  text-align: right;
+  font-family: "Courier New", monospace;
+}
+.display .hint {
+  font-size: 0.6em;
+  color: #ff8800;
+  text-align: center;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.display .hint.show { opacity: 1; }
+
+/* 输入区 */
+.inputs-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 6px;
+}
+.inputs-wrapper::-webkit-scrollbar { width: 3px; }
+.inputs-wrapper::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 2px; }
+
+.section-title {
+  font-size: 0.7em;
+  color: #0ff;
+  margin: 8px 0 4px 0;
+  padding: 3px 6px;
+  background: #0f3460;
+  border-radius: 4px;
+  font-weight: bold;
+}
+.section-sub {
+  font-size: 0.6em;
+  color: #aaa;
+  margin-bottom: 4px;
+  font-weight: normal;
+}
+
+.inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+.input-group {
+  display: flex;
+  flex-direction: column;
+}
+.input-group label {
+  font-size: 0.6em;
+  color: #aaa;
+  margin-bottom: 1px;
+}
+.input-group input {
+  background: #0a0a1a;
+  border: 1.5px solid #0f3460;
+  border-radius: 6px;
+  padding: 11px 6px;
+  color: #fff;
+  font-size: 0.8em;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+.input-group input:focus {
+  border-color: #0f0;
+  box-shadow: 0 0 6px rgba(0,255,0,0.3);
+}
+.input-group input.readonly-highlight {
+  border-color: #ff8800;
+  box-shadow: 0 0 8px rgba(255,136,0,0.4);
+}
+.input-group input.error-highlight {
+  border-color: #f00;
+  animation: shake 0.4s ease;
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* 按钮面板 */
+.btn-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  flex-shrink: 0;
+}
+.btn {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  padding: 0;
+  color: #eee;
+  font-size: 0.9em;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+}
+.btn:active { transform: scale(0.92); background: #0f3460; }
+.btn.num { background: #1a1a3e; font-weight: bold; font-size: 1.25em; }
+.btn.op { background: #0f3460; color: #0ff; font-size: 1.15em; font-weight: bold; }
+.btn.eq {
+  background: #0f0;
+  color: #000;
+  font-weight: bold;
+  font-size: 1.1em;
+  grid-column: span 4;
+  min-height: 52px;
+}
+.btn.clear { background: #3a1a1a; color: #f55; font-size: 0.85em; }
+.btn.back { background: #3a2a1a; color: #fa0; font-size: 0.85em; }
+
+.full-width { grid-column: span 2; }
+
+/* 普通计算器模式隐藏输入区 */
+body.calc-mode .inputs-wrapper { display: none; }
+body.calc-mode .icon-tabs { display: none; }
+body.calc-mode h1 { font-size: 0.8em; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1 id="main-title">📐 几何计算器</h1>
+
+  <div class="icon-tabs" id="iconTabs">
+    <div class="icon-tab active" data-tab="calc" title="普通计算器">
+      <svg viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 2v4h10V4H7zm0 6h4v4H7v-4zm6 0h4v4h-4v-4zm-6 6h4v4H7v-4zm6 0h4v4h-4v-4z"/></svg>
+    </div>
+    <div class="icon-tab" data-tab="ll" title="直线∩直线">
+      <svg viewBox="0 0 24 24"><path d="M21 3L3 21M21 21L3 3" stroke="#ccc" stroke-width="2" fill="none"/><circle cx="6" cy="6" r="2" fill="#0ff"/><circle cx="18" cy="18" r="2" fill="#0ff"/></svg>
+    </div>
+    <div class="icon-tab" data-tab="cc" title="圆∩圆">
+      <svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="5" stroke="#ccc" stroke-width="2" fill="none"/><circle cx="15" cy="15" r="5" stroke="#ccc" stroke-width="2" fill="none"/></svg>
+    </div>
+    <div class="icon-tab" data-tab="lc" title="直线∩圆">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="21" x2="21" y2="3" stroke="#ccc" stroke-width="2"/><circle cx="12" cy="12" r="6" stroke="#ccc" stroke-width="2" fill="none"/></svg>
+    </div>
+    <div class="icon-tab" data-tab="tp" title="→极坐标">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="#ccc" stroke-width="2" fill="none"/><line x1="12" y1="12" x2="19" y2="7" stroke="#0f0" stroke-width="2"/><circle cx="19" cy="7" r="2" fill="#0f0"/></svg>
+    </div>
+    <div class="icon-tab" data-tab="pt" title="→直角">
+      <svg viewBox="0 0 24 24"><path d="M4 20L20 4M4 4h16v16" stroke="#ccc" stroke-width="2" fill="none"/><circle cx="14" cy="10" r="2" fill="#0f0"/></svg>
+    </div>
+    <div class="icon-tab" data-tab="3c" title="三点定圆">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="#ccc" stroke-width="2" fill="none"/><circle cx="6" cy="6" r="2" fill="#0ff"/><circle cx="18" cy="6" r="2" fill="#0ff"/><circle cx="12" cy="20" r="2" fill="#0ff"/></svg>
+    </div>
+    <div class="icon-tab" data-tab="2r" title="两点+半径">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" stroke="#ccc" stroke-width="2" fill="none"/><circle cx="5" cy="12" r="2" fill="#0ff"/><circle cx="19" cy="12" r="2" fill="#0ff"/></svg>
+    </div>
+    <div class="icon-tab" data-tab="len" title="直线长度">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke="#ccc" stroke-width="2"/><circle cx="3" cy="12" r="2" fill="#0ff"/><circle cx="21" cy="12" r="2" fill="#0f0"/></svg>
+    </div>
+  </div>
+
+  <div class="display" id="display">
+    <div class="expr" id="expr"></div>
+    <div class="result" id="result">请输入数值</div>
+    <div class="hint" id="calcHint">📱 点击此处返回几何计算器</div>
+  </div>
+
+  <div class="inputs-wrapper" id="inputsWrapper">
+    <div class="section-title" data-section="ll">✕ 直线 ∩ 直线 <span class="section-sub">— 两点确定两直线，求交点</span></div>
+    <div class="inputs" data-section="ll">
+      <div class="input-group"><label>直线1 · P₁ x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="ll_p1x"></div>
+      <div class="input-group"><label>P₁ y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="ll_p1y"></div>
+      <div class="input-group"><label>P₂ x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="ll_p2x"></div>
+      <div class="input-group"><label>P₂ y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="ll_p2y"></div>
+      <div class="input-group"><label>直线2 · Q₁ x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="ll_q1x"></div>
+      <div class="input-group"><label>Q₁ y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="ll_q1y"></div>
+      <div class="input-group"><label>Q₂ x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="ll_q2x"></div>
+      <div class="input-group"><label>Q₂ y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="ll_q2y"></div>
+    </div>
+
+    <div class="section-title" data-section="cc">◎ 圆 ∩ 圆 <span class="section-sub">— 圆心+半径，求交点</span></div>
+    <div class="inputs" data-section="cc">
+      <div class="input-group"><label>圆1 · 圆心 x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="cc_c1x"></div>
+      <div class="input-group"><label>圆心 y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="cc_c1y"></div>
+      <div class="input-group"><label>半径 r</label><input type="text" inputmode="none" readonly class="calc-input" data-name="cc_r1"></div>
+      <div class="input-group"><label>圆2 · 圆心 x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="cc_c2x"></div>
+      <div class="input-group"><label>圆心 y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="cc_c2y"></div>
+      <div class="input-group"><label>半径 r</label><input type="text" inputmode="none" readonly class="calc-input" data-name="cc_r2"></div>
+    </div>
+
+    <div class="section-title" data-section="lc">✕ 直线 ∩ ◎ 圆 <span class="section-sub">— 两点定直线+圆，求交点</span></div>
+    <div class="inputs" data-section="lc">
+      <div class="input-group"><label>直线 · P x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="lc_px"></div>
+      <div class="input-group"><label>P y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="lc_py"></div>
+      <div class="input-group"><label>Q x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="lc_qx"></div>
+      <div class="input-group"><label>Q y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="lc_qy"></div>
+      <div class="input-group"><label>圆 · 圆心 x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="lc_cx"></div>
+      <div class="input-group"><label>圆心 y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="lc_cy"></div>
+      <div class="input-group"><label>半径 r</label><input type="text" inputmode="none" readonly class="calc-input" data-name="lc_r"></div>
+    </div>
+
+    <div class="section-title" data-section="tp">📍 → 极坐标 <span class="section-sub">— 直角坐标转极径+极角(°)</span></div>
+    <div class="inputs" data-section="tp">
+      <div class="input-group"><label>点 x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tp_x"></div>
+      <div class="input-group"><label>点 y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tp_y"></div>
+    </div>
+
+    <div class="section-title" data-section="pt">📍 → 直角 <span class="section-sub">— 极径+极角(°)转直角坐标</span></div>
+    <div class="inputs" data-section="pt">
+      <div class="input-group"><label>极径 ρ</label><input type="text" inputmode="none" readonly class="calc-input" data-name="pt_rho"></div>
+      <div class="input-group"><label>极角 θ (°)</label><input type="text" inputmode="none" readonly class="calc-input" data-name="pt_theta"></div>
+    </div>
+
+    <div class="section-title" data-section="3c">◎ 三点定圆 <span class="section-sub">— 三点求外接圆圆心和半径</span></div>
+    <div class="inputs" data-section="3c">
+      <div class="input-group"><label>A x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tc_ax"></div>
+      <div class="input-group"><label>A y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tc_ay"></div>
+      <div class="input-group"><label>B x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tc_bx"></div>
+      <div class="input-group"><label>B y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tc_by"></div>
+      <div class="input-group"><label>C x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tc_cx"></div>
+      <div class="input-group"><label>C y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tc_cy"></div>
+    </div>
+
+    <div class="section-title" data-section="2r">◎ 两点+半径 <span class="section-sub">— 圆上两点+半径求圆心</span></div>
+    <div class="inputs" data-section="2r">
+      <div class="input-group"><label>P x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tr_px"></div>
+      <div class="input-group"><label>P y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tr_py"></div>
+      <div class="input-group"><label>Q x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tr_qx"></div>
+      <div class="input-group"><label>Q y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tr_qy"></div>
+      <div class="input-group"><label>半径 r</label><input type="text" inputmode="none" readonly class="calc-input" data-name="tr_r"></div>
+    </div>
+
+    <div class="section-title" data-section="len">📏 直线长度 <span class="section-sub">— 求长度，改长度反求端点</span></div>
+    <div class="inputs" data-section="len">
+      <div class="input-group"><label>起点 P x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="len_px"></div>
+      <div class="input-group"><label>P y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="len_py"></div>
+      <div class="input-group"><label>端点 Q x</label><input type="text" inputmode="none" readonly class="calc-input" data-name="len_qx"></div>
+      <div class="input-group"><label>Q y</label><input type="text" inputmode="none" readonly class="calc-input" data-name="len_qy"></div>
+      <div class="input-group"><label>长度 L（可编辑）</label><input type="text" inputmode="none" readonly class="calc-input" data-name="len_l" style="border-color:#ff8800;"></div>
+    </div>
+  </div>
+
+  <div class="btn-grid" id="keypad">
+    <div class="btn clear" data-key="AC">AC</div>
+    <div class="btn clear" data-key="C">C</div>
+    <div class="btn back" data-key="BACK">⌫</div>
+    <div class="btn op" data-key="±">±</div>
+
+    <div class="btn num" data-key="7">7</div>
+    <div class="btn num" data-key="8">8</div>
+    <div class="btn num" data-key="9">9</div>
+    <div class="btn op" data-key="+">＋</div>
+
+    <div class="btn num" data-key="4">4</div>
+    <div class="btn num" data-key="5">5</div>
+    <div class="btn num" data-key="6">6</div>
+    <div class="btn op" data-key="-">－</div>
+
+    <div class="btn num" data-key="1">1</div>
+    <div class="btn num" data-key="2">2</div>
+    <div class="btn num" data-key="3">3</div>
+    <div class="btn op" data-key="*">×</div>
+
+    <div class="btn num full-width" data-key="0">0</div>
+    <div class="btn num" data-key=".">.</div>
+    <div class="btn op" data-key="/">÷</div>
+
+    <div class="btn eq" data-key="=">= 计算</div>
+  </div>
+</div>
+
+<script>
+let activeInput = null;
+let currentTab = 'calc';
+let calcExpr = '';
+let calcJustEval = false;
+let geoExprCache = '';
+let geoResultCache = '';
+
+function parseExpr(expr) {
+  if (expr === '' || expr === null || expr === undefined) return NaN;
+  try {
+    let e = expr.toString().trim();
+    if (e === '') return NaN;
+    e = e.replace(/\^/g, '**');
+    if (!/^[0-9+\-*/().\s]+$/.test(e)) return NaN;
+    let result = Function('"use strict"; return (' + e + ')')();
+    if (typeof result !== 'number' || !isFinite(result)) return NaN;
+    return result;
+  } catch(e) { return NaN; }
+}
+
+function getVal(name) {
+  let el = document.querySelector(`[data-name="${name}"]`);
+  if (!el) return NaN;
+  return parseExpr(el.value);
+}
+
+function setResult(expr, result) {
+  document.getElementById('expr').textContent = expr;
+  document.getElementById('result').textContent = result;
+}
+
+function clearResult() {
+  document.getElementById('expr').textContent = '';
+  document.getElementById('result').textContent = '请输入数值';
+}
+
+function formatNum(n) {
+  if (!isFinite(n)) return String(n);
+  let s = n.toFixed(6).replace(/\.?0+$/, '');
+  if (s.endsWith('.')) s = s.slice(0, -1);
+  return s === '' ? '0' : s;
+}
+
+// 图标标签切换
+document.querySelectorAll('.icon-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    let tabName = tab.dataset.tab;
+
+    if (tabName === 'calc') {
+      if (currentTab !== 'calc') {
+        geoExprCache = document.getElementById('expr').textContent;
+        geoResultCache = document.getElementById('result').textContent;
+      }
+      document.body.classList.add('calc-mode');
+      document.getElementById('main-title').textContent = '🧮 普通计算器';
+      document.getElementById('calcHint').classList.add('show');
+      document.querySelectorAll('.icon-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentTab = 'calc';
+      if (calcExpr === '') {
+        document.getElementById('expr').textContent = '';
+        document.getElementById('result').textContent = '0';
+      }
+      activeInput = null;
+      return;
+    }
+
+    // 切到几何功能
+    document.body.classList.remove('calc-mode');
+    document.getElementById('main-title').textContent = '📐 几何计算器';
+    document.getElementById('calcHint').classList.remove('show');
+    document.querySelectorAll('.icon-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentTab = tabName;
+
+    if (geoResultCache) {
+      document.getElementById('expr').textContent = geoExprCache;
+      document.getElementById('result').textContent = geoResultCache;
+    }
+
+    let section = document.querySelector(`.section-title[data-section="${tabName}"]`);
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+// 显示屏点击切换
+document.getElementById('display').addEventListener('click', () => {
+  let calcTab = document.querySelector('.icon-tab[data-tab="calc"]');
+  if (currentTab === 'calc') {
+    // 普通计算器 → 切回几何（激活第一个几何功能）
+    let firstGeo = document.querySelector('.icon-tab[data-tab="ll"]');
+    if (firstGeo) firstGeo.click();
+  } else {
+    calcTab.click();
+  }
+});
+
+// 输入框点击
+document.querySelectorAll('.calc-input').forEach(input => {
+  input.addEventListener('click', (e) => {
+    document.querySelectorAll('.calc-input').forEach(i => {
+      i.classList.remove('readonly-highlight');
+      i.classList.remove('error-highlight');
+    });
+    input.classList.add('readonly-highlight');
+    activeInput = input;
+    e.stopPropagation();
+  });
+});
+
+// 键盘按钮
+document.querySelectorAll('.btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    let key = btn.dataset.key;
+
+    if (key === 'AC') {
+      if (currentTab === 'calc') {
+        calcExpr = '';
+        document.getElementById('expr').textContent = '';
+        document.getElementById('result').textContent = '0';
+        calcJustEval = false;
+      } else {
+        document.querySelectorAll('.calc-input').forEach(i => i.value = '');
+        activeInput = null;
+        clearResult();
+      }
+      return;
+    }
+
+    if (key === 'C') {
+      if (currentTab === 'calc') {
+        calcExpr = '';
+        document.getElementById('result').textContent = '0';
+      } else {
+        if (activeInput) activeInput.value = '';
+        clearResult();
+      }
+      return;
+    }
+
+    if (key === 'BACK') {
+      if (currentTab === 'calc') {
+        calcExpr = calcExpr.slice(0, -1);
+        document.getElementById('result').textContent = calcExpr || '0';
+      } else {
+        if (activeInput) activeInput.value = activeInput.value.slice(0, -1);
+      }
+      return;
+    }
+
+    if (key === '±') {
+      if (currentTab === 'calc') {
+        if (calcExpr && !isNaN(parseExpr(calcExpr))) {
+          let v = parseExpr(calcExpr);
+          calcExpr = v < 0 ? String(-v) : '-' + String(v);
+          document.getElementById('result').textContent = calcExpr;
+        }
+      } else {
+        if (activeInput) {
+          let v = activeInput.value;
+          if (v.startsWith('-')) activeInput.value = v.slice(1);
+          else if (v.length > 0) activeInput.value = '-' + v;
+        }
+      }
+      return;
+    }
+
+    if (key === '=') {
+      if (currentTab === 'calc') {
+        let val = parseExpr(calcExpr);
+        if (!isNaN(val)) {
+          document.getElementById('expr').textContent = calcExpr + ' =';
+          document.getElementById('result').textContent = formatNum(val);
+          calcExpr = String(val);
+          calcJustEval = true;
+        } else {
+          document.getElementById('result').textContent = '算式有误';
+        }
+      } else {
+        doCalculate();
+      }
+      return;
+    }
+
+    if (currentTab === 'calc') {
+      if (calcJustEval && /[0-9]/.test(key)) {
+        calcExpr = key;
+        calcJustEval = false;
+      } else {
+        calcExpr += key;
+      }
+      document.getElementById('result').textContent = calcExpr;
+    } else {
+      if (!activeInput) {
+        let inputs = document.querySelectorAll(`[data-section="${currentTab}"] .calc-input`);
+        if (inputs.length === 0) inputs = document.querySelectorAll('.calc-input');
+        activeInput = inputs[0];
+        if (activeInput) activeInput.classList.add('readonly-highlight');
+      }
+      if (activeInput) {
+        activeInput.value += key;
+      }
+    }
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  let allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Tab','Enter','Escape'];
+  if (e.ctrlKey || e.metaKey || allowed.includes(e.key)) return;
+  e.preventDefault();
+});
+
+function doCalculate() {
+  let errorInput = null;
+  document.querySelectorAll('.calc-input').forEach(input => {
+    let v = input.value.trim();
+    if (v !== '') {
+      let parsed = parseExpr(v);
+      if (!isNaN(parsed)) {
+        input.value = formatNum(parsed);
+      } else {
+        errorInput = input;
+      }
+    }
+  });
+
+  if (errorInput) {
+    document.querySelectorAll('.calc-input').forEach(i => i.classList.remove('error-highlight'));
+    errorInput.classList.add('error-highlight');
+    errorInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setResult('', '算式有误或无输入，请检查红色框');
+    return;
+  }
+
+  let expr = '', result = '';
+
+  switch(currentTab) {
+    case 'll': {
+      let x1=getVal('ll_p1x'), y1=getVal('ll_p1y'), x2=getVal('ll_p2x'), y2=getVal('ll_p2y');
+      let x3=getVal('ll_q1x'), y3=getVal('ll_q1y'), x4=getVal('ll_q2x'), y4=getVal('ll_q2y');
+      if ([x1,y1,x2,y2,x3,y3,x4,y4].some(isNaN)) { result='请填写所有数值'; break; }
+      let a1=y2-y1, b1=x1-x2, c1=x2*y1-x1*y2;
+      let a2=y4-y3, b2=x3-x4, c2=x4*y3-x3*y4;
+      let det=a1*b2-a2*b1;
+      if (Math.abs(det)<1e-12) { result='两直线平行或重合，无唯一交点'; break; }
+      let ix=(b1*c2-b2*c1)/det, iy=(a2*c1-a1*c2)/det;
+      expr=`直线1:(${x1},${y1})-(${x2},${y2}) ∩ 直线2:(${x3},${y3})-(${x4},${y4})`;
+      result=`交点: (${ix.toFixed(6)}, ${iy.toFixed(6)})`;
+      break;
+    }
+    case 'cc': {
+      let cx1=getVal('cc_c1x'), cy1=getVal('cc_c1y'), r1=getVal('cc_r1');
+      let cx2=getVal('cc_c2x'), cy2=getVal('cc_c2y'), r2=getVal('cc_r2');
+      if ([cx1,cy1,r1,cx2,cy2,r2].some(isNaN)) { result='请填写所有数值'; break; }
+      let dx=cx2-cx1, dy=cy2-cy1, d=Math.sqrt(dx*dx+dy*dy);
+      if (d<1e-12) { result='两圆同心'; break; }
+      if (d>r1+r2+1e-12) { result='两圆外离，无交点'; break; }
+      if (d<Math.abs(r1-r2)-1e-12) { result='一圆内含另一圆，无交点'; break; }
+      let a=(r1*r1-r2*r2+d*d)/(2*d);
+      let h2=r1*r1-a*a;
+      if (h2<-1e-12) { result='无解'; break; }
+      if (h2<0) h2=0;
+      let h=Math.sqrt(h2);
+      let px=cx1+a*dx/d, py=cy1+a*dy/d;
+      let pts=[];
+      if (h<1e-12) { pts.push(`(${px.toFixed(6)}, ${py.toFixed(6)})`); }
+      else { pts.push(`(${(px-h*dy/d).toFixed(6)}, ${(py+h*dx/d).toFixed(6)})`); pts.push(`(${(px+h*dy/d).toFixed(6)}, ${(py-h*dx/d).toFixed(6)})`); }
+      expr=`圆1:(${cx1},${cy1}) r=${r1} ∩ 圆2:(${cx2},${cy2}) r=${r2}`;
+      result=`交点(${pts.length}个): ${pts.join(', ')}`;
+      break;
+    }
+    case 'lc': {
+      let px=getVal('lc_px'), py=getVal('lc_py'), qx=getVal('lc_qx'), qy=getVal('lc_qy');
+      let cx=getVal('lc_cx'), cy=getVal('lc_cy'), r=getVal('lc_r');
+      if ([px,py,qx,qy,cx,cy,r].some(isNaN)) { result='请填写所有数值'; break; }
+      let dx=qx-px, dy=qy-py;
+      let A=dy, B=-dx, C=dx*py-dy*px;
+      let denom=A*A+B*B;
+      if (denom<1e-12) { result='直线方向无效'; break; }
+      let x0=(B*(B*cx-A*cy)-A*C)/denom, y0=(A*(-B*cx+A*cy)-B*C)/denom;
+      if (Math.sqrt((cx-x0)*(cx-x0)+(cy-y0)*(cy-y0))>r+1e-12) { result='直线与圆外离，无交点'; break; }
+      let h2=r*r-(cx-x0)*(cx-x0)-(cy-y0)*(cy-y0);
+      if (h2<-1e-12) { result='无交点'; break; }
+      if (h2<0) h2=0;
+      let h=Math.sqrt(h2), sd=Math.sqrt(denom);
+      let pts=[];
+      if (h<1e-12) { pts.push(`(${x0.toFixed(6)}, ${y0.toFixed(6)})`); }
+      else { pts.push(`(${(x0+h*dx/sd).toFixed(6)}, ${(y0+h*dy/sd).toFixed(6)})`); pts.push(`(${(x0-h*dx/sd).toFixed(6)}, ${(y0-h*dy/sd).toFixed(6)})`); }
+      expr=`直线(${px},${py})-(${qx},${qy}) ∩ 圆(${cx},${cy}) r=${r}`;
+      result=`交点(${pts.length}个): ${pts.join(', ')}`;
+      break;
+    }
+    case 'tp': {
+      let x=getVal('tp_x'), y=getVal('tp_y');
+      if ([x,y].some(isNaN)) { result='请填写所有数值'; break; }
+      let rho=Math.sqrt(x*x+y*y), theta=Math.atan2(y,x)*180/Math.PI;
+      if (theta<0) theta+=360;
+      expr=`点(${x}, ${y}) → 极坐标`; result=`ρ=${rho.toFixed(6)}, θ=${theta.toFixed(4)}°`;
+      break;
+    }
+    case 'pt': {
+      let rho=getVal('pt_rho'), theta=getVal('pt_theta');
+      if ([rho,theta].some(isNaN)) { result='请填写所有数值'; break; }
+      let rad=theta*Math.PI/180, x=rho*Math.cos(rad), y=rho*Math.sin(rad);
+      expr=`ρ=${rho}, θ=${theta}° → 直角坐标`; result=`(${x.toFixed(6)}, ${y.toFixed(6)})`;
+      break;
+    }
+    case '3c': {
+      let ax=getVal('tc_ax'), ay=getVal('tc_ay'), bx=getVal('tc_bx'), by=getVal('tc_by'), cx=getVal('tc_cx'), cy=getVal('tc_cy');
+      if ([ax,ay,bx,by,cx,cy].some(isNaN)) { result='请填写所有数值'; break; }
+      let D=2*(ax*(by-cy)+bx*(cy-ay)+cx*(ay-by));
+      if (Math.abs(D)<1e-12) { result='三点共线，无法确定圆'; break; }
+      let ux=ax*ax+ay*ay, uy=bx*bx+by*by, uz=cx*cx+cy*cy;
+      let hx=(ux*(by-cy)+uy*(cy-ay)+uz*(ay-by))/D, hy=(ux*(cx-bx)+uy*(ax-cx)+uz*(bx-ax))/D;
+      let r=Math.sqrt((ax-hx)*(ax-hx)+(ay-hy)*(ay-hy));
+      expr=`三点 A(${ax},${ay}) B(${bx},${by}) C(${cx},${cy})`; result=`圆心: (${hx.toFixed(6)}, ${hy.toFixed(6)}), 半径: ${r.toFixed(6)}`;
+      break;
+    }
+    case '2r': {
+      let px=getVal('tr_px'), py=getVal('tr_py'), qx=getVal('tr_qx'), qy=getVal('tr_qy'), r=getVal('tr_r');
+      if ([px,py,qx,qy,r].some(isNaN)) { result='请填写所有数值'; break; }
+      let dx=qx-px, dy=qy-py, d2=dx*dx+dy*dy, d=Math.sqrt(d2);
+      if (d<1e-12) { result='两点重合，无法确定'; break; }
+      if (2*r<d-1e-12) { result='半径太小，两点距离大于直径'; break; }
+      let midX=(px+qx)/2, midY=(py+qy)/2, h2=r*r-d2/4;
+      if (h2<-1e-12) { result='无解'; break; }
+      if (h2<0) h2=0;
+      let h=Math.sqrt(h2), centers=[];
+      if (h<1e-12) { centers.push(`(${midX.toFixed(6)}, ${midY.toFixed(6)})`); }
+      else { centers.push(`(${(midX-h*dy/d).toFixed(6)}, ${(midY+h*dx/d).toFixed(6)})`); centers.push(`(${(midX+h*dy/d).toFixed(6)}, ${(midY-h*dx/d).toFixed(6)})`); }
+      expr=`P(${px},${py}) Q(${qx},${qy}) r=${r}`; result=`圆心(${centers.length}个): ${centers.join(', ')}`;
+      break;
+    }
+    case 'len': {
+      let px=getVal('len_px'), py=getVal('len_py'), qx=getVal('len_qx'), qy=getVal('len_qy');
+      let lenInput=document.querySelector('[data-name="len_l"]'), lenVal=parseExpr(lenInput?lenInput.value:'');
+      if ([px,py,qx,qy].some(isNaN)) { result='请填写所有数值'; break; }
+      let dx=qx-px, dy=qy-py, curLen=Math.sqrt(dx*dx+dy*dy);
+      if (!isNaN(lenVal) && lenVal>0) {
+        if (curLen<1e-12) { result='起点与端点重合，无法确定方向'; break; }
+        let ratio=lenVal/curLen, qx2=px+dx*ratio, qy2=py+dy*ratio;
+        expr=`起点(${px},${py}), 方向→(${qx},${qy}), 长度=${lenVal}`;
+        result=`端点 Q': (${qx2.toFixed(6)}, ${qy2.toFixed(6)})`;
+        let qxEl=document.querySelector('[data-name="len_qx"]'), qyEl=document.querySelector('[data-name="len_qy"]');
+        if (qxEl) qxEl.value=qx2.toFixed(6); if (qyEl) qyEl.value=qy2.toFixed(6);
+      } else {
+        expr=`P(${px},${py}) Q(${qx},${qy})`; result=`长度 = ${curLen.toFixed(6)}`;
+        if (lenInput) lenInput.value=curLen.toFixed(6);
+      }
+      break;
+    }
+  }
+
+  setResult(expr, result);
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.calc-input').forEach(i => i.classList.remove('readonly-highlight'));
+});
+</script>
+</body>
+</html>
