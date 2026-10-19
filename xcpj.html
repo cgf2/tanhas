@@ -241,6 +241,63 @@
   }
   .sync-hint { font-size: 12px; color: #8a94a6; line-height: 1.6; margin: 0; }
 
+  /* ---------- 数据导入（Excel 文件 / 粘贴）模态框 ---------- */
+  .dm-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 900;
+                display: flex; align-items: center; justify-content: center; padding: 14px; }
+  .dm-overlay[hidden] { display: none; }
+  .dm-panel { background: #fff; border-radius: 12px; width: min(920px, 100%); max-height: 92vh;
+              display: flex; flex-direction: column; box-shadow: 0 18px 60px rgba(0,0,0,.35); overflow: hidden; }
+  .dm-head { display: flex; align-items: center; justify-content: space-between;
+             padding: 12px 16px; border-bottom: 1px solid #e5eaf2; }
+  .dm-head h3 { margin: 0; font-size: 16px; color: #1f2d3d; }
+  .dm-body { padding: 12px 16px; overflow: auto; flex: 1 1 auto; min-height: 0; }
+  .dm-progress { font-size: 13px; color: #2f80ed; margin: 8px 0; }
+  .dm-progress.err { color: #d64541; }
+  .dm-sheet-row { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px;
+                  font-size: 13px; color: #4a5568; }
+  .dm-sheet-row[hidden] { display: none; }
+  .dm-sheet-row select { font-size: 13px; border: 1px solid #d7dee9; border-radius: 6px;
+                         padding: 4px 6px; background: #fff; min-width: 160px; max-width: 100%; }
+  .dm-map-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .dm-map-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #4a5568;
+                 background: #f5f7fb; border-radius: 6px; padding: 4px 8px; max-width: 260px; }
+  .dm-map-item > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 96px; }
+  .dm-map-item select { font-size: 12px; border: 1px solid #d7dee9; border-radius: 4px; padding: 2px 4px; background: #fff; }
+  .dm-grid-wrap { overflow: auto; border: 1px solid #e5eaf2; border-radius: 8px; max-height: 42vh; }
+  .dm-grid { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .dm-grid th, .dm-grid td { border: 1px solid #e5eaf2; padding: 4px 6px; text-align: left; white-space: nowrap; }
+  .dm-grid th { background: #f5f7fb; color: #4a5568; font-weight: 600; position: sticky; top: 0; }
+  .dm-grid td input { border: 1px solid transparent; background: transparent; font: inherit; width: 100%;
+                      min-width: 60px; padding: 2px 4px; border-radius: 4px; box-sizing: border-box; }
+  .dm-grid td input:focus { outline: none; border-color: #2f80ed; background: #fff; }
+  .dm-grid td.ignored { color: #a0aec0; background: #fafbfc; }
+  .dm-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+             padding: 12px 16px; border-top: 1px solid #e5eaf2; background: #fafbfd; }
+  .dm-foot label { font-size: 13px; color: #4a5568; display: flex; align-items: center; gap: 4px; }
+  .dm-foot .spacer { flex: 1; }
+  .dm-tip { font-size: 12px; color: #8a94a6; margin: 6px 0 0; }
+  .dm-mode-hint { flex-basis: 100%; font-size: 12px; color: #2f80ed; margin: 2px 0 0; }
+  .dm-mode-hint.warn { color: #d69e2e; }
+  .dm-mode-hint.danger { color: #d64541; }
+  .btn-danger { background: #d64541 !important; color: #fff; }
+  .btn-danger:hover { background: #bf3a36 !important; }
+  .dm-replace-warn { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+                     margin: 10px 16px 12px; padding: 10px 12px; border: 1px solid #f2c1c0;
+                     background: #fdf1f0; border-radius: 8px; }
+  .dm-replace-warn[hidden] { display: none; }
+  .dm-replace-warn .warn-text { flex: 1 1 260px; font-size: 13px; color: #9b2c2c; font-weight: 600; }
+  .dm-replace-warn .btn { min-height: 34px; }
+  #dmGridBody input.bad-cell { border-color: #d64541; background: #fdeaea; }
+
+  /* ---------- 班次记录浮层（跨班次历史追溯） ---------- */
+  .stats-pop { width: min(520px, calc(100vw - 24px)); max-height: 72vh; overflow: auto; }
+  .stats-history { font-size: 12px; margin-top: 8px; }
+  .stats-history summary { cursor: pointer; color: #2f80ed; }
+  .stats-shift-card { border: 1px solid #e5eaf2; border-radius: 8px; padding: 8px 10px; margin: 8px 0; background: #fafbfd; }
+  .stats-shift-card b { font-size: 12px; color: #374151; }
+  .stats-shift-card table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 6px; }
+  .stats-shift-card td { border: 1px solid #e5eaf2; padding: 2px 6px; text-align: left; }
+
   /* ============ 响应式 ============ */
   @media (max-width: 640px) {
     .toolbar { padding: 8px 10px; gap: 7px; }
@@ -264,15 +321,32 @@
     <span class="btn-text">复制表格到剪贴板</span>
   </button>
 
-  <button type="button" class="btn" id="btnDownload" title="生成PNG图片并下载（微信粘贴失败时的备用方式）">
+  <button type="button" class="btn" id="btnDownload" title="生成JPG图片并下载（微信粘贴失败时的备用方式）">
     <svg class="ico" viewBox="0 0 1024 1024"><path d="M512 672L288 448h140.8V128h166.4v320H736L512 672zM128 768h768v128H128V768z"/></svg>
-    下载PNG图片
+    下载JPG图片
   </button>
 
   <button type="button" class="btn" id="btnAddProject" title="在表格末尾新增一个空白项目">＋ 新增项目</button>
   <button type="button" class="btn" id="btnDelProject" title="删除当前光标所在的项目（含其全部工序行）">－ 删除项目</button>
   <button type="button" class="btn" id="btnAddStep" title="在当前光标所在工序行下方插入一个空白工序行">＋ 新增工序行</button>
   <button type="button" class="btn" id="btnDelStep" title="删除当前光标所在的工序行（不影响项目列）">－ 删除工序行</button>
+  <button type="button" class="btn" id="btnDataImport" title="导入 Excel 文件（.xlsx/.xlsm，可选择工作表）；也可直接在报表区域粘贴从 Excel 复制的表格数据">导入 Excel</button>
+  <input type="file" id="dmFileInput" accept=".xlsx,.xlsm" hidden>
+  <button type="button" class="btn" id="btnShiftClose" title="归档当前班次数据并清零「当班完成」（累计完成保留，可追溯历史）">班次结算</button>
+  <button type="button" class="btn" id="btnShiftLog" title="查看当前班次信息与跨班次历史追溯">班次记录</button>
+
+  <div class="sync-pop stats-pop" id="statsPop" hidden>
+    <div class="sync-row">
+      <b style="font-size:13px;color:#374151;">班次记录</b>
+      <span style="flex:1"></span>
+      <button type="button" class="btn" id="statsPopClose" style="min-height:30px;">收起</button>
+    </div>
+    <div class="sync-hint" id="statsShiftInfo"></div>
+    <details class="stats-history">
+      <summary>跨班次历史追溯（<span id="statsHistCount">0</span> 条）</summary>
+      <div id="statsHistory"></div>
+    </details>
+  </div>
 
   <span class="autosave-chip" id="autosaveChip" title="编辑单元格后停止输入 0.5 秒即自动保存到本地暂存">
     <span class="dot"></span>
@@ -295,6 +369,43 @@
       <button type="button" class="btn" id="syncClose">收起</button>
     </div>
     <p class="sync-hint">手机与电脑填入相同房间号即可实时互相同步；修改在停止输入约 0.5 秒后自动同步，断网时的修改会在联网后自动补传。房间号即访问凭据，请勿外传。</p>
+  </div>
+
+  <div class="dm-overlay" id="dmModal" hidden>
+    <div class="dm-panel" role="dialog" aria-label="数据导入">
+      <div class="dm-head">
+        <h3>Excel / 数据导入</h3>
+        <button type="button" class="btn" id="dmClose">关闭</button>
+      </div>
+      <div class="dm-body">
+        <div class="dm-progress" id="dmProgress">请选择 Excel 文件（.xlsx / .xlsm）；也可直接在报表区域按 Ctrl+V 粘贴从 Excel 复制的表格数据。</div>
+        <div class="dm-sheet-row" id="dmSheetRow" hidden>
+          <label for="dmSheetSel">选择工作表：</label>
+          <select id="dmSheetSel"></select>
+        </div>
+        <div class="dm-map-row" id="dmMapRow" hidden></div>
+        <div class="dm-grid-wrap" id="dmGridWrap" hidden>
+          <table class="dm-grid"><thead id="dmGridHead"></thead><tbody id="dmGridBody"></tbody></table>
+        </div>
+        <p class="dm-tip">已按表头自动匹配字段：可直接在上方表格中修正内容，并调整每列对应的目标字段（选「忽略」则该列不写入），确认后才会写入报表。</p>
+      </div>
+      <div class="dm-foot">
+        <label><input type="radio" name="dmMode" value="new" id="dmModeNew" checked> 追加为新项目</label>
+        <label><input type="radio" name="dmMode" value="current" id="dmModeCur"> 写入当前选中项目</label>
+        <label><input type="radio" name="dmMode" value="replace" id="dmModeRep"> 替换全部项目</label>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="dmRechoose">重新选择文件</button>
+        <button type="button" class="btn" id="dmCopyJson">复制 JSON</button>
+        <button type="button" class="btn" id="dmCancel">取消</button>
+        <button type="button" class="btn btn-primary" id="dmConfirm" disabled>确认写入报表</button>
+        <p class="dm-mode-hint" id="dmModeHint"></p>
+      </div>
+      <div class="dm-replace-warn" id="dmReplaceWarn" hidden>
+        <span class="warn-text" id="dmReplaceText"></span>
+        <button type="button" class="btn btn-danger" id="dmReplaceYes">确认替换</button>
+        <button type="button" class="btn" id="dmReplaceNo">先不替换</button>
+      </div>
+    </div>
   </div>
 
   <div class="status" id="status" role="status" aria-live="polite"></div>
@@ -337,7 +448,56 @@ const TableModule = (() => {
 
   // 报表数据（结构：产品分组 + 工序列表，参考 123.jpg）
   const STRUCT_KEY = "report_structure_v1";   // 表格结构（含全部单元格内容）本地持久化键
+  const HEADER_KEY = "report_header_v1";      // 表头元数据（标题/日期/班组）本地持久化键
   let cursorTr = null;                        // 当前光标所在数据行（<tr>）
+
+  // 表头元数据模型：标题、日期、班组。原先日期被硬编码在 buildHeaderRows 中，
+  // 每次 render() 重建 DOM 都会覆盖用户输入，且不在同步模型中 → 日期无法持久化/同步。
+  // 现提升为一等模型字段，render 时读取、编辑时写回、远端更新时同步。
+  function todayStr() {
+    const d = new Date();
+    return d.getFullYear() + "/" + (d.getMonth() + 1) + "/" + d.getDate();
+  }
+  function loadHeader() {
+    try {
+      const h = JSON.parse(localStorage.getItem(HEADER_KEY) || "null");
+      if (h && typeof h === "object") return h;
+    } catch (e) {}
+    // 向后兼容：旧版本日期存于 report_autosave_v1 的 h2 键，迁移过来
+    try {
+      const snap = JSON.parse(localStorage.getItem("report_autosave_v1") || "{}") || {};
+      if (snap.h0 || snap.h2 || snap.h4) {
+        return {
+          title: snap.h0 || "新产品加工完成报表",
+          date: snap.h2 || todayStr(),
+          team: snap.h4 || "甲班白班"
+        };
+      }
+    } catch (e) {}
+    return { title: "新产品加工完成报表", date: todayStr(), team: "甲班白班" };
+  }
+  let header = loadHeader();
+  function persistHeader() {
+    try { localStorage.setItem(HEADER_KEY, JSON.stringify(header)); } catch (e) {}
+  }
+  // 表头单元格 cid → 模型字段映射（h0=标题, h2=日期, h4=班组）
+  const HEADER_CID_MAP = { h0: "title", h2: "date", h4: "team" };
+  // 表头单元格在标题行（row0）中的固定列位置，不依赖 data-cid 定位（render 后 cid 可能尚未补全）
+  const HEADER_CELL_INDEX = { h0: 0, h2: 2, h4: 4 };
+  function setHeaderField(cid, value) {
+    const f = HEADER_CID_MAP[cid];
+    if (!f) return false;
+    header[f] = String(value == null ? "" : value);
+    persistHeader();
+    // 同步刷新 DOM：按固定列位置定位表头单元格，避免依赖 data-cid（MutationObserver 异步补全有时差）
+    const row0 = document.querySelector("#tableBody tr");
+    if (row0) {
+      const cell = row0.cells[HEADER_CELL_INDEX[cid]];
+      // 用户正在编辑该格时不覆盖，待其失焦后由本地输入事件写回（LWW：本地较新）
+      if (cell && document.activeElement !== cell) cell.innerText = header[f];
+    }
+    return true;
+  }
   let cursorChangeCb = null;                  // 光标变化回调（由 UIModule 注入）
 
   let groups = [
@@ -389,11 +549,11 @@ const TableModule = (() => {
   // 顶部标题行 + 列头行
   function buildHeaderRows() {
     let html = "<tr>"
-      + '<td class="title-cell" colspan="9" contenteditable="true">新产品加工完成报表</td>'
+      + '<td class="title-cell" colspan="9" contenteditable="true">' + cellHTML(header.title) + '</td>'
       + '<td class="col-label">日期</td>'
-      + '<td contenteditable="true">2026/10/9</td>'
+      + '<td contenteditable="true">' + cellHTML(header.date) + '</td>'
       + '<td class="col-label">班组</td>'
-      + '<td colspan="3" contenteditable="true">甲班白班</td>'
+      + '<td colspan="3" contenteditable="true">' + cellHTML(header.team) + '</td>'
       + "</tr>";
     html += "<tr>" + HEADERS.map(h => '<td class="col-label">' + h + "</td>").join("") + "</tr>";
     return html;
@@ -608,6 +768,8 @@ const TableModule = (() => {
     adoptModel: adoptModel,
     refresh: refresh,
     persistStructure: persistStructure,
+    setHeaderField: setHeaderField,
+    getGroups: function () { return groups; },   // 生产统计模块只读引用（Scan/导出/班次归档用）
     uid: uid
   };
 })();
@@ -616,7 +778,7 @@ const TableModule = (() => {
 /* ================================================================
  * 模块二：截图处理模块（CaptureModule）
  * 纯原生 Canvas 矢量重绘方案：读取实时 DOM 表格内容与样式参数，
- * 用 Canvas 2D API 逐单元格绘制边框/底色/文字 → 高清 PNG Blob。
+ * 用 Canvas 2D API 逐单元格绘制边框/底色/文字 → 高清 PNG（写剪贴板）/ JPG（下载）Blob（2 倍像素密度）。
  * 不加载任何图片资源，Canvas 永远不会被污染（跨浏览器、离线可用）。
  * ================================================================ */
 const CaptureModule = (() => {
@@ -646,9 +808,9 @@ const CaptureModule = (() => {
   }
 
   /**
-   * 将报表区域实时渲染为 PNG Blob
+   * 将报表区域实时渲染为图片（同时产出 PNG 与 JPG 两份 Blob）
    * @param {HTMLElement} element #captureArea
-   * @returns {Promise<Blob>} image/png
+   * @returns {Promise<{png: Blob, jpg: Blob}>} png 用于写剪贴板，jpg 用于下载
    */
   async function capture(element) {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
@@ -811,13 +973,19 @@ const CaptureModule = (() => {
       ctx.fillText(n.text, PAD_X + colX[n.col - 1], footBaseY);
     });
 
-    /* ---------- 6. 导出 PNG ---------- */
-    return await new Promise((resolve, reject) => {
+    /* ---------- 6. 导出 PNG + JPG ---------- */
+    // Canvas 已整幅铺白底（第 3 步），JPG 无透明通道也不会出现黑底。
+    // 剪贴板写入只用 PNG：Chromium 系浏览器对 ClipboardItem 的 image/jpeg 支持极差，
+    // 用 JPG 写入必然失败；JPG（质量 0.95）只用于下载兜底，兼顾体积。
+    const toBlob = (type, quality) => new Promise((resolve, reject) => {
       canvas.toBlob(blob => {
         if (blob) resolve(blob);
-        else reject(new Error("Canvas 导出 PNG 失败"));
-      }, "image/png");
+        else reject(new Error("Canvas 导出 " + type + " 失败"));
+      }, type, quality);
     });
+    const png = await toBlob("image/png");
+    const jpg = await toBlob("image/jpeg", 0.95);
+    return { png, jpg };
   }
 
   return { capture };
@@ -830,13 +998,14 @@ const CaptureModule = (() => {
  * ================================================================ */
 const ClipboardModule = (() => {
 
-  // 是否支持向剪贴板写入 PNG 图片
+  // 是否支持向剪贴板写入图片
   function isImageWriteSupported() {
     return !!(navigator.clipboard && window.ClipboardItem &&
               typeof navigator.clipboard.write === "function");
   }
 
   // 写入 PNG；失败时抛出带错误类型的异常
+  // 注：剪贴板只写 image/png——Chromium 系浏览器普遍不支持写入 image/jpeg
   async function writePng(blob) {
     if (!isImageWriteSupported()) {
       throw Object.assign(new Error("当前浏览器不支持 ClipboardItem 图片写入"), { code: "UNSUPPORTED" });
@@ -867,7 +1036,7 @@ const ClipboardModule = (() => {
     const d = new Date();
     const p = n => String(n).padStart(2, "0");
     return "加工完成报表_" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +
-           "_" + p(d.getHours()) + p(d.getMinutes()) + ".png";
+           "_" + p(d.getHours()) + p(d.getMinutes()) + ".jpg";
   }
 
   return { isImageWriteSupported, writePng, download, defaultFileName };
@@ -905,11 +1074,11 @@ const UIModule = (() => {
       case "NOT_ALLOWED":
         return "解决建议：请直接用鼠标/手指点击本按钮触发（不要用脚本自动调用），并在浏览器弹出的权限提示中选择“允许”；或将浏览器升级到最新版。";
       case "UNSUPPORTED":
-        return "解决建议：推荐改用 Chrome / Edge 最新版；当前已自动下载 PNG 图片，可在微信中直接发送该图片。";
+        return "解决建议：推荐改用 Chrome / Edge 最新版；当前已自动下载 JPG 图片，可在微信中直接发送该图片。";
       case "SecurityError":
         return "解决建议：请将本 HTML 文件保存到本地后双击打开（file://），或通过 https 访问。";
       default:
-        return "解决建议：请刷新页面重试，或改用 Chrome / Edge 最新版；也可直接点击「下载PNG图片」后手动发送到微信。";
+        return "解决建议：请刷新页面重试，或改用 Chrome / Edge 最新版；也可直接点击「下载JPG图片」后手动发送到微信。";
     }
   }
 
@@ -917,10 +1086,10 @@ const UIModule = (() => {
   async function copyTable() {
     clear();
     setLoading(true, "正在生成高清图片…");
-    show("info", "正在截取表格并生成高清 PNG 图片，请稍候…");
-    let blob;
+    show("info", "正在截取表格并生成高清图片，请稍候…");
+    let shots;
     try {
-      blob = await CaptureModule.capture(document.getElementById("captureArea"));
+      shots = await CaptureModule.capture(document.getElementById("captureArea"));
     } catch (e) {
       setLoading(false);
       show("error", "截图失败：" + (e.message || e) + " " + advise(""), true);
@@ -929,27 +1098,27 @@ const UIModule = (() => {
 
     setLoading(true, "正在写入剪贴板…");
     try {
-      await ClipboardModule.writePng(blob);
+      await ClipboardModule.writePng(shots.png);
       setLoading(false);
       const isMac = /mac/i.test(navigator.platform || "");
       show("success",
         "表格图片已复制到剪贴板！打开微信（PC 聊天框 / 文件传输助手按 " +
-        (isMac ? "Command+V" : "Ctrl+V") + "；手机端在输入框长按→粘贴）即可发送。图片为 2 倍高清 PNG，文字清晰。");
+        (isMac ? "Command+V" : "Ctrl+V") + "；手机端在输入框长按→粘贴）即可发送。图片为 2 倍高清，文字清晰。");
     } catch (e) {
-      // 剪贴板不可用 / 权限拒绝：同一图片自动下载，保证流程不中断
-      ClipboardModule.download(blob, ClipboardModule.defaultFileName());
+      // 剪贴板不可用 / 权限拒绝：同一表格自动下载 JPG，保证流程不中断
+      ClipboardModule.download(shots.jpg, ClipboardModule.defaultFileName());
       setLoading(false);
-      show("warn", "未能写入剪贴板（" + e.message + "）。高清 PNG 图片已自动下载，可直接在微信中发送。" + advise(e.code), true);
+      show("warn", "未能写入剪贴板（" + e.message + "）。高清 JPG 图片已自动下载，可直接在微信中发送。" + advise(e.code), true);
     }
   }
 
   async function downloadOnly() {
     clear();
-    show("info", "正在生成高清 PNG 图片…");
+    show("info", "正在生成高清 JPG 图片…");
     try {
-      const blob = await CaptureModule.capture(document.getElementById("captureArea"));
-      ClipboardModule.download(blob, ClipboardModule.defaultFileName());
-      show("success", "PNG 图片已生成并开始下载，可直接发送到微信。");
+      const shots = await CaptureModule.capture(document.getElementById("captureArea"));
+      ClipboardModule.download(shots.jpg, ClipboardModule.defaultFileName());
+      show("success", "JPG 图片已生成并开始下载，可直接发送到微信。");
     } catch (e) {
       show("error", "生成图片失败：" + (e.message || e) + " " + advise(""), true);
     }
@@ -1021,9 +1190,9 @@ const UIModule = (() => {
 
     // 环境检测：不支持图片剪贴板或非安全上下文时给出前置提示
     if (!window.isSecureContext) {
-      show("warn", "当前不是安全上下文（https 或本地文件），剪贴板写入可能被浏览器拦截；届时会自动下载 PNG 图片兜底。", true);
+      show("warn", "当前不是安全上下文（https 或本地文件），剪贴板写入可能被浏览器拦截；届时会自动下载 JPG 图片兜底。", true);
     } else if (!ClipboardModule.isImageWriteSupported()) {
-      show("warn", "当前浏览器版本可能不支持直接写入图片剪贴板，点击复制时将自动下载高清 PNG 供手动发送；推荐使用最新版 Chrome / Edge。", true);
+      show("warn", "当前浏览器版本可能不支持直接写入图片剪贴板，点击复制时将自动下载高清 JPG 供手动发送；推荐使用最新版 Chrome / Edge。", true);
     }
   }
 
@@ -1201,7 +1370,10 @@ const AutoSaveApp = (() => {
       // 关键：本地编辑必须同步写入数据模型（单一事实来源）。
       // 否则快照构建/合并保护读不到键入值，远端快照采纳时会把这些值重置掉。
       let dirty = false;
-      batch.forEach((v, k) => { if (TableModule.applyCellKey(k, v, true)) dirty = true; });
+      batch.forEach((v, k) => {
+        if (TableModule.applyCellKey(k, v, true)) dirty = true;
+        else if (k[0] === "h") TableModule.setHeaderField(k, v);   // 表头（标题/日期/班组）同步写入模型
+      });
       if (dirty) TableModule.persistStructure();
     }
   };
@@ -1223,9 +1395,12 @@ const AutoSaveApp = (() => {
   }
 
   // 页面加载时，将本地暂存的历史修改回填到表格（刷新不丢数据）
+  // 注：表头 h* 键已由 TableModule.header 模型接管（buildHeaderRows 渲染），此处跳过避免双重来源冲突；
+  // 底部备注 f* 仍走暂存回填。
   function applySnapshot() {
     const snap = readStore();
     Object.keys(snap).forEach(cid => {
+      if (cid[0] === "h") return;
       const el = document.querySelector('[data-cid="' + cid + '"]');
       if (el) el.innerText = String(snap[cid] == null ? "" : snap[cid]);
     });
@@ -1345,6 +1520,13 @@ const AutoSaveApp = (() => {
     core = createAutoSaveCore({ api: api, debounceMs: DEBOUNCE_MS, onStateChange: renderState });
     bindInputDelegation();
     bindLifecycle();
+    // 监听表格 DOM 重建：任何 render（增删行/同步快照采纳/refresh）都会重建表头单元格，
+    // 导致其丢失 data-cid，输入事件无法触发自动保存。用 MutationObserver 在节点插入后自动补全。
+    const body = document.getElementById("tableBody");
+    if (body) {
+      const cidObserver = new MutationObserver(() => ensureCellIds());
+      cidObserver.observe(body, { childList: true, subtree: true });
+    }
     retryBtn.addEventListener("click", () => {
       UIModule.show("info", "正在重试保存未完成的修改…");
       core.retryFailed();
@@ -1680,6 +1862,7 @@ const SyncModule = (() => {
         el.classList.add("as-saved");                // 绿闪：该格被其他设备更新
       }
       if (op.k[0] === "h" || op.k[0] === "f") {
+        if (op.k[0] === "h") TableModule.setHeaderField(op.k, op.v);   // 远端表头变更同步写入模型，避免 render 覆盖
         try {
           const snap = JSON.parse(localStorage.getItem("report_autosave_v1") || "{}") || {};
           snap[op.k] = String(op.v == null ? "" : op.v);
@@ -1824,11 +2007,950 @@ const SyncModule = (() => {
   };
 })();
 
+/* ================================================================
+ * 模块七·五：班次追踪（StatsModule）
+ * 职责：当班完成量的班次追踪——
+ *  1) 日期 / 班组变更（表头失焦）或手动「班次结算」时，自动归档上一班次
+ *     快照并清零当班完成，累计完成保留
+ *  2) 历史班次可在「班次记录」浮层中跨班次追溯（含产出明细与合计）
+ * ================================================================ */
+const StatsModule = (() => {
+  const SHIFT_KEY = "report_shift_v1";     // { shift:{date,team,since}, history:[{date,team,closedAt,rows:[...]}] }
+  const DONE_COL = 4;                      // 当班完成在 STEP_COLS 中的下标
+
+  let shift = null;                        // 当前班次 { date, team, since }
+  let history = [];                        // 已归档班次（新→旧）
+  let popEl, shiftInfoEl, histEl, histCountEl;
+
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SHIFT_KEY) || "null");
+      if (s && typeof s === "object") {
+        shift = s.shift || null;
+        history = Array.isArray(s.history) ? s.history : [];
+      }
+    } catch (e) {}
+  }
+  function persist() {
+    try { localStorage.setItem(SHIFT_KEY, JSON.stringify({ shift: shift, history: history })); } catch (e) {}
+  }
+
+  function currentHeader() {
+    try {
+      const h = JSON.parse(localStorage.getItem("report_header_v1") || "null");
+      if (h && typeof h === "object") return h;
+    } catch (e) {}
+    return { title: "", date: "", team: "" };
+  }
+
+  // ---------- 班次追踪：变更检测 / 归档清零 / 历史追溯 ----------
+  function initShift() {
+    // 首次运行 localStorage 表头可能尚未持久化：优先读已渲染的表头 DOM
+    const h = readHeaderLive();
+    if (!shift) { shift = { date: h.date || "", team: h.team || "", since: Date.now() }; persist(); }
+  }
+  // 直接读表头 DOM（标题行固定列位：cells[2]=日期, cells[4]=班组），不依赖模型落盘时序
+  function readHeaderLive() {
+    const body = document.getElementById("tableBody");
+    if (body && body.rows[0] && body.rows[0].cells.length >= 5) {
+      const c = body.rows[0].cells;
+      return { date: c[2].innerText.trim(), team: c[4].innerText.trim() };
+    }
+    return currentHeader();
+  }
+  // 表头（日期/班组）编辑完成（失焦）后调用：班次标识变化 → 归档上一班次并清零当班完成。
+  // 失焦触发而非逐键触发：避免用户修改日期到一半时误归档。
+  function onHeaderChange() {
+    const h = readHeaderLive();
+    if (!shift) { initShift(); return; }
+    if (h.date === shift.date && h.team === shift.team) return;
+    closeShift(h, true);
+  }
+  // 归档当前班次快照，清零当班完成（保留累计完成），并切换到新班次
+  function closeShift(newHeader, auto) {
+    if (!shift) { initShift(); return false; }
+    const groups = TableModule.getGroups();
+    const snapRows = [];
+    groups.forEach(g => g.steps.forEach(s => {
+      snapRows.push({ no: g.no, item: g.item, name: g.name, step: s.step, mac: s.mac,
+                      done: s.done, total: s.total });
+    }));
+    history.unshift({ date: shift.date, team: shift.team, closedAt: Date.now(), rows: snapRows });
+    if (history.length > 60) history.length = 60;             // 上限防无限膨胀
+    const nh = newHeader || currentHeader();
+    shift = { date: nh.date || "", team: nh.team || "", since: Date.now() };
+    persist();
+    // 清零当班完成：模型 + 单元格键写入（本地持久化与多端同步广播）
+    const vals = new Map();
+    groups.forEach(g => g.steps.forEach(s => {
+      if (String(s.done || "") !== "") { s.done = ""; vals.set(g.id + "." + s.id + "." + DONE_COL, ""); }
+    }));
+    TableModule.refresh();
+    if (vals.size && typeof SyncModule !== "undefined") {
+      if (SyncModule.publishCellOps) SyncModule.publishCellOps(vals);
+      if (SyncModule.publishStructure) SyncModule.publishStructure();
+    }
+    renderShiftPanel();
+    UIModule.show("success", (auto ? "检测到班次切换：" : "班次结算完成：") +
+      "上一班次（" + (history[0].date || "—") + " " + (history[0].team || "—") + "）已归档 " +
+      snapRows.length + " 行记录，当班完成量已清零，累计完成保留。");
+    return true;
+  }
+
+  // ---------- 班次记录浮层（当前班次信息 + 跨班次历史追溯） ----------
+  function renderShiftPanel() {
+    if (shiftInfoEl) {
+      const h = currentHeader();
+      shiftInfoEl.textContent = "当前班次：" + (h.date || "—") + " " + (h.team || "—") +
+        (shift && shift.since ? "（始于 " + new Date(shift.since).toLocaleString("zh-CN", { hour12: false }) + "）" : "");
+    }
+    if (histCountEl) histCountEl.textContent = history.length;
+    if (histEl) {
+      histEl.innerHTML = history.map((rec, i) => {
+        const rows = rec.rows.filter(r => String(r.done || "").trim() !== "");
+        const sum = rows.reduce((n, r) => n + (parseInt(r.done, 10) || 0), 0);
+        const detail = rows.map(r =>
+          "<tr><td>" + (r.no || "") + "</td><td>" + (r.item || "") + " " + (r.name || "") + "</td><td>" +
+          (r.step || "") + "</td><td>" + (r.mac || "") + "</td><td>" + (r.done || "") + "</td><td>" + (r.total || "") + "</td></tr>"
+        ).join("");
+        return '<div class="stats-shift-card"><b>#' + (i + 1) + "　" + (rec.date || "—") + " " + (rec.team || "—") +
+          "　归档于 " + new Date(rec.closedAt).toLocaleString("zh-CN", { hour12: false }) +
+          "　当班完成合计 " + sum + " 件（" + rows.length + " 行有产出）</b>" +
+          (detail ? '<table><tr><td>序号</td><td>项目/产品</td><td>工序</td><td>机床</td><td>当班完成</td><td>累计</td></tr>' +
+            detail + "</table>" : '<div style="color:#8a94a6;margin-top:4px;">该班次无产出记录。</div>') + "</div>";
+      }).join("") || '<div style="color:#8a94a6;">暂无历史班次记录。</div>';
+    }
+  }
+
+  function bindUI() {
+    popEl = document.getElementById("statsPop");
+    shiftInfoEl = document.getElementById("statsShiftInfo");
+    histEl = document.getElementById("statsHistory");
+    histCountEl = document.getElementById("statsHistCount");
+    document.getElementById("btnShiftLog").addEventListener("click", () => {
+      const willShow = popEl.hidden;
+      popEl.hidden = !willShow;
+      if (willShow) renderShiftPanel();
+    });
+    document.getElementById("statsPopClose").addEventListener("click", () => { popEl.hidden = true; });
+    document.getElementById("btnShiftClose").addEventListener("click", () => {
+      if (confirm("确定要结算当前班次吗？\n\n将归档本班次全部「当班完成」数据，并把当班完成列清零（累计完成保留，可追溯）。"))
+        closeShift(null, false);
+    });
+    // 表头编辑失焦 → 班次切换检测（仅本地编辑；远端表头变更不重复归档）
+    document.addEventListener("focusout", e => {
+      const td = e.target && e.target.closest ? e.target.closest("#tableBody td") : null;
+      if (!td) return;
+      const body = document.getElementById("tableBody");
+      if (body && body.rows[0] === td.parentNode) setTimeout(onHeaderChange, 50);
+    });
+  }
+
+  function init() {
+    load();
+    bindUI();
+    initShift();
+    renderShiftPanel();
+  }
+
+  return {
+    init: init,
+    onHeaderChange: onHeaderChange,
+    closeShift: function () { return closeShift(null, false); },
+    renderShiftPanel: renderShiftPanel,
+    _dbg: function () {
+      return { shift: shift, historyCount: history.length, history: history.slice(0, 3) };
+    }
+  };
+})();
+
+/* ================================================================
+ * 模块八：数据导入（DataImportModule）
+ * 职责：把 Excel 文件、以及从 Excel 复制的表格数据导入报表——
+ *  1) 文件导入：.xlsx / .xlsm（内置 ZIP + XML 解析，无第三方依赖）；
+ *     多工作表文件可选「选择工作表」下拉切换要导入的表
+ *  2) 粘贴导入：在报表区域按 Ctrl+V，若剪贴板是多列表格
+ *     （制表符分隔或 HTML 表格）则自动解析，单格文本粘贴保持原有行为
+ *  3) 表头自动匹配：按字段名识别列归属；未识别到表头时按标准 15 列顺序落位
+ *  4) 预览确认：可逐列调整目标字段、直接修正单元格内容；
+ *     三种写入模式（追加为新项目 / 写入当前选中项目 / 替换全部项目）
+ *  5) 写入复用 adoptModel + 自动保存 + 多端同步链路，与手工编辑数据完全一致
+ * ================================================================ */
+const DataImportModule = (() => {
+  const MAX_SIZE = 20 * 1024 * 1024;      // 文件大小上限 20MB
+  const STEP_KEY_LIST = ["step", "line", "mac", "takt", "done", "note", "worker", "total", "tool", "life"];
+  const FIELDS = [
+    { key: "p.no", label: "序号" }, { key: "p.item", label: "项目" },
+    { key: "p.name", label: "产品名称" }, { key: "p.draw", label: "图号" },
+    { key: "p.qty", label: "本批数量" }, { key: "s.step", label: "工序名称" },
+    { key: "s.line", label: "生产线" }, { key: "s.mac", label: "机床编号" },
+    { key: "s.takt", label: "加工节拍" }, { key: "s.done", label: "当班完成" },
+    { key: "s.note", label: "进度及异常" }, { key: "s.worker", label: "加工人员" },
+    { key: "s.total", label: "累计完成数量" }, { key: "s.tool", label: "使用刀具型号" },
+    { key: "s.life", label: "刀具寿命" }
+  ];
+  // 标准 15 列顺序（与表头 HEADERS 一致）：无表头时按此顺序落位
+  const CANON_ORDER = ["p.no", "p.item", "p.name", "p.draw", "p.qty", "s.step", "s.line", "s.mac",
+                       "s.takt", "s.done", "s.note", "s.worker", "s.total", "s.tool", "s.life"];
+  const FIELD_LABEL = {};
+  FIELDS.forEach(f => { FIELD_LABEL[f.key] = f.label; });
+  const NUM_KEYS = { "p.no": 1, "p.qty": 1, "s.done": 1, "s.total": 1 };
+  // 表头精确字典优先（避免「工序名称」被「名称」类模糊规则抢走）
+  const HEAD_EXACT = {
+    "序号": "p.no", "项目": "p.item", "产品名称": "p.name", "产品": "p.name", "产品名": "p.name",
+    "图号": "p.draw", "本批数量": "p.qty", "数量": "p.qty", "本批": "p.qty", "件数": "p.qty",
+    "工序名称": "s.step", "工序": "s.step", "工步": "s.step",
+    "生产线": "s.line", "线别": "s.line",
+    "机床编号": "s.mac", "机床": "s.mac", "机台": "s.mac", "设备": "s.mac",
+    "加工节拍": "s.takt", "节拍": "s.takt",
+    "当班完成": "s.done", "当班完成量": "s.done", "当班": "s.done",
+    "进度及异常": "s.note", "进度": "s.note", "异常": "s.note", "备注": "s.note",
+    "加工人员": "s.worker", "人员": "s.worker", "操作者": "s.worker", "工人": "s.worker",
+    "累计完成数量": "s.total", "累计完成": "s.total", "累计": "s.total",
+    "使用刀具型号": "s.tool", "刀具型号": "s.tool", "刀具": "s.tool",
+    "刀具寿命": "s.life", "寿命": "s.life"
+  };
+  // 模糊匹配（按特异度从高到低排列）
+  const HEAD_HINTS = [
+    [/工序|工步/, "s.step"], [/机床|机台|设备/, "s.mac"], [/生产线|线别/, "s.line"],
+    [/加工节拍|节拍/, "s.takt"], [/当班/, "s.done"], [/刀具寿命|寿命/, "s.life"],
+    [/刀具/, "s.tool"], [/加工人员|人员|操作|工人/, "s.worker"], [/累计/, "s.total"],
+    [/异常|进度|备注/, "s.note"], [/图号/, "p.draw"], [/本批|数量|件数/, "p.qty"],
+    [/产品/, "p.name"], [/项目|件号|零件/, "p.item"], [/序号/, "p.no"]
+  ].map(pair => [pair[0], pair[1]]);
+
+  let els = {}, grid = null, book = null, busy = false, seqNo = 0;
+
+  function $(id) { return document.getElementById(id); }
+  function show(msg, isErr) {
+    els.progress.textContent = msg;
+    els.progress.classList.toggle("err", !!isErr);
+  }
+
+  // ---------- 单元格标注：数字字段格式非法时红边提示（只标注不阻塞，由用户在预览中修正） ----------
+  function applyCellMeta(inp, ri, ci) {
+    const key = grid.map[ci];
+    const v = String((grid.rows[ri] && grid.rows[ri][ci]) || "").trim();
+    const isNum = !!key && !!NUM_KEYS[key];
+    const bad = isNum && v !== "" && !/^[0-9.]+$/.test(v);
+    inp.classList.toggle("bad-cell", bad);
+  }
+
+  // ---------- 表头识别 ----------
+  function guessField(v) {
+    const s = String(v == null ? "" : v).replace(/[\s　]+/g, "");
+    if (!s) return "";
+    if (HEAD_EXACT[s]) return HEAD_EXACT[s];
+    for (let i = 0; i < HEAD_HINTS.length; i++) {
+      if (HEAD_HINTS[i][0].test(s)) return HEAD_HINTS[i][1];
+    }
+    return "";
+  }
+
+  // 二维数组 → 判定是否含表头行，并生成列映射
+  function detectMapping(rows) {
+    let width = 0;
+    rows.forEach(r => { if (r.length > width) width = r.length; });
+    const first = [];
+    for (let i = 0; i < width; i++) first.push(String((rows[0] && rows[0][i]) == null ? "" : rows[0][i]));
+    let map = first.map(guessField);
+    map.forEach((k, i) => { if (k && map.indexOf(k) < i) map[i] = ""; });   // 同字段重复列：只保留第一处
+    const hits = map.filter(Boolean).length;
+    const nonEmpty = first.filter(v => v.trim() !== "").length;
+    const hasHeader = hits >= 3 || (hits >= 2 && hits >= Math.ceil(nonEmpty * 0.6));
+    const headerNames = [];
+    if (hasHeader) {
+      for (let i = 0; i < width; i++) headerNames.push(first[i] || ("第" + (i + 1) + "列"));
+      return { hasHeader: true, rows: rows.slice(1), map: map, headerNames: headerNames };
+    }
+    const map2 = [];
+    for (let i = 0; i < width; i++) {
+      const key = CANON_ORDER[i] || "";
+      map2.push(key);
+      headerNames.push(key ? FIELD_LABEL[key] : ("第" + (i + 1) + "列"));
+    }
+    return { hasHeader: false, rows: rows, map: map2, headerNames: headerNames };
+  }
+
+  // 规整二维数组：去掉整行空白、去掉右侧整列空白、统一行长度
+  function normalizeRows(rows) {
+    const kept = [];
+    (rows || []).forEach(r => {
+      const arr = (r || []).map(v => String(v == null ? "" : v).replace(/\u00a0/g, " ").replace(/\s+$/g, ""));
+      if (arr.some(v => v !== "")) kept.push(arr);
+    });
+    let width = 0;
+    kept.forEach(r => { for (let i = r.length - 1; i >= 0; i--) { if (r[i] !== "") { if (i + 1 > width) width = i + 1; break; } } })
+    const out = kept.map(r => {
+      const arr = r.slice(0, width);
+      while (arr.length < width) arr.push("");
+      return arr;
+    });
+    return out;
+  }
+
+  // ---------- 解析：制表符文本（Excel 复制） ----------
+  function parseTSV(text) {
+    const norm = String(text || "").replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+    if (!norm) return [];
+    return norm.split("\n").map(line => {
+      const cells = line.split("\t");
+      return cells.map(c => c.replace(/^"(.*)"$/s, "$1").replace(/\u00a0/g, " "));
+    });
+  }
+
+  // ---------- 解析：xlsx（ZIP + XML，纯浏览器实现，无需第三方库） ----------
+  async function inflateRaw(bytes) {
+    if (typeof DecompressionStream === "undefined")
+      throw new Error("当前浏览器不支持解压 xlsx：请改用较新版本的 Chrome / Edge 打开本页，或直接在 Excel 中复制数据后粘贴到报表区域");
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  function colToIndex(letters) {
+    let n = 0;
+    const s = String(letters || "").toUpperCase();
+    for (let i = 0; i < s.length; i++) {
+      const v = s.charCodeAt(i) - 64;
+      if (v >= 1 && v <= 26) n = n * 26 + v;
+    }
+    return n - 1;
+  }
+
+  // 打开 ZIP：解析中央目录并返回可复用的读取句柄（同一文件切换工作表时无需重复解析）
+  function openZip(buf) {
+    const u8 = new Uint8Array(buf), dv = new DataView(buf);
+    let eocd = -1;
+    const lowest = Math.max(0, u8.length - 66000);
+    for (let i = u8.length - 22; i >= lowest; i--) {
+      if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error("不是有效的 xlsx 文件（未找到 ZIP 结构），请确认文件未损坏");
+    const count = dv.getUint16(eocd + 10, true);
+    let p = dv.getUint32(eocd + 16, true);
+    const entries = {}, names = [];
+    for (let i = 0; i < count; i++) {
+      if (p + 46 > u8.length || dv.getUint32(p, true) !== 0x02014b50) break;
+      const method = dv.getUint16(p + 10, true);
+      const compSize = dv.getUint32(p + 20, true);
+      const nameLen = dv.getUint16(p + 28, true);
+      const extraLen = dv.getUint16(p + 30, true);
+      const cmtLen = dv.getUint16(p + 32, true);
+      const localOff = dv.getUint32(p + 42, true);
+      const name = new TextDecoder("utf-8").decode(u8.subarray(p + 46, p + 46 + nameLen));
+      entries[name] = { method: method, compSize: compSize, localOff: localOff };
+      names.push(name);
+      p += 46 + nameLen + extraLen + cmtLen;
+    }
+    async function readEntry(name) {
+      const e = entries[name];
+      if (!e) return null;
+      const nLen = dv.getUint16(e.localOff + 26, true);
+      const xLen = dv.getUint16(e.localOff + 28, true);
+      const start = e.localOff + 30 + nLen + xLen;
+      const comp = u8.subarray(start, start + e.compSize);
+      const bytes = e.method === 0 ? comp : await inflateRaw(comp);
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+    return { names: names, readEntry: readEntry, shared: null };
+  }
+
+  // 工作表清单：优先按工作簿内定义顺序（xl/workbook.xml 中的 sheet 名 + rels 目标路径），
+  // 读不到工作簿定义时回退为工作表文件名排序（名称退化为「工作表N」）
+  async function listSheets(zip) {
+    const wb = await zip.readEntry("xl/workbook.xml");
+    const rels = await zip.readEntry("xl/_rels/workbook.xml.rels");
+    if (wb && rels) {
+      const relMap = {};
+      const rs = new DOMParser().parseFromString(rels, "application/xml").getElementsByTagName("Relationship");
+      for (let i = 0; i < rs.length; i++) {
+        const id = rs[i].getAttribute("Id") || "";
+        let target = rs[i].getAttribute("Target") || "";
+        if (!id || !target || /^https?:/i.test(target)) continue;
+        if (target.charAt(0) === "/") target = target.replace(/^\/+/, "");             // 绝对路径：xl/worksheets/…
+        else if (target.indexOf("xl/") !== 0) target = "xl/" + target.replace(/^\.\//, "");
+        relMap[id] = target;
+      }
+      const sheets = new DOMParser().parseFromString(wb, "application/xml").getElementsByTagName("sheet");
+      const out = [];
+      for (let i = 0; i < sheets.length; i++) {
+        const path = relMap[sheets[i].getAttribute("r:id") || sheets[i].getAttribute("id") || ""];
+        if (path) out.push({ name: sheets[i].getAttribute("name") || ("工作表" + (i + 1)), path: path });
+      }
+      if (out.length) return out;
+    }
+    return zip.names.filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n))
+      .sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
+      .map((n, i) => ({ name: "工作表" + (i + 1), path: n }));
+  }
+
+  // 读取指定工作表为二维数组（共享字符串表按文件缓存，切换工作表时不重复解析）
+  async function readSheet(zip, path) {
+    if (!zip.shared) {
+      const list = [];
+      const sharedXml = await zip.readEntry("xl/sharedStrings.xml");
+      if (sharedXml) {
+        const sis = new DOMParser().parseFromString(sharedXml, "application/xml").getElementsByTagName("si");
+        for (let i = 0; i < sis.length; i++) {
+          const ts = sis[i].getElementsByTagName("t");
+          let text = "";
+          for (let j = 0; j < ts.length; j++) text += ts[j].textContent || "";
+          list.push(text);
+        }
+      }
+      zip.shared = list;
+    }
+    const shared = zip.shared;
+    const xml = await zip.readEntry(path);
+    if (!xml) throw new Error("未找到工作表数据：" + path);
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    const rowEls = doc.getElementsByTagName("row");
+    const out = [];
+    for (let i = 0; i < rowEls.length; i++) {
+      const rowEl = rowEls[i];
+      const rIdx = (parseInt(rowEl.getAttribute("r"), 10) || (i + 1)) - 1;
+      const arr = [];
+      const cEls = rowEl.getElementsByTagName("c");
+      for (let j = 0; j < cEls.length; j++) {
+        const c = cEls[j];
+        const ref = c.getAttribute("r") || "";
+        const ci = ref ? colToIndex(ref.replace(/[0-9]/g, "")) : j;
+        const t = c.getAttribute("t") || "";
+        let val = "";
+        if (t === "inlineStr") {
+          const ts = c.getElementsByTagName("t");
+          for (let k = 0; k < ts.length; k++) val += ts[k].textContent || "";
+        } else {
+          const vEl = c.getElementsByTagName("v")[0];
+          const raw = vEl ? (vEl.textContent || "") : "";
+          if (t === "s") {
+            const idx = parseInt(raw, 10);
+            val = isNaN(idx) ? "" : (shared[idx] || "");
+          } else val = raw;
+        }
+        if (ci >= 0) arr[ci] = val;
+      }
+      out[rIdx] = arr;
+    }
+    const grid2 = [];
+    for (let i = 0; i < out.length; i++) {
+      const r = out[i];
+      if (!r) { grid2.push([]); continue; }
+      const arr = [];
+      for (let j = 0; j < r.length; j++) arr.push(r[j] == null ? "" : String(r[j]));
+      grid2.push(arr);
+    }
+    return grid2;
+  }
+
+  // ---------- 解析：剪贴板 HTML 表格 ----------
+  function parseHtmlTable(html) {
+    try {
+      const doc = new DOMParser().parseFromString(String(html), "text/html");
+      const table = doc.querySelector("table");
+      if (!table) return null;
+      const rows = [];
+      const trs = table.rows;
+      for (let i = 0; i < trs.length; i++) {
+        const arr = [];
+        const cells = trs[i].cells;
+        for (let j = 0; j < cells.length; j++) {
+          const span = parseInt(cells[j].getAttribute("colspan") || "1", 10) || 1;
+          arr.push((cells[j].textContent || "").replace(/\u00a0/g, " ").trim());
+          for (let k = 1; k < span; k++) arr.push("");
+        }
+        rows.push(arr);
+      }
+      return rows;
+    } catch (e) { return null; }
+  }
+
+  // ---------- 打开模态框并渲染预览 ----------
+  // 打开时先把当前结构落盘：首次打开页面时 localStorage 可能尚无结构，
+  // 而预览提示与写入都以该结构为基准（保证基准与当前表格一致）
+  function openModal() { TableModule.persistStructure(); els.modal.hidden = false; }
+  function closeModal() {
+    seqNo++;                          // 使在途解析回调失效
+    els.modal.hidden = true;
+    els.replaceWarn.hidden = true;    // 关闭即撤销待确认的替换操作
+    grid = null;
+  }
+
+  // 渲染预览：保留原有写入模式选择（切换工作表时不必重新选择模式）
+  function applyRows(rows, sourceLabel, keepMode) {
+    const clean = normalizeRows(rows);
+    if (!clean.length) {
+      openModal();
+      els.mapRow.hidden = true;
+      els.gridWrap.hidden = true;
+      els.confirm.disabled = true;
+      els.replaceWarn.hidden = true;
+      show("未解析到有效数据：请检查所选工作表中是否包含表格内容。", true);
+      return;
+    }
+    const det = detectMapping(clean);
+    grid = { rows: det.rows, map: det.map, headerNames: det.headerNames, hasHeader: det.hasHeader, source: sourceLabel };
+    openModal();
+    els.replaceWarn.hidden = true;
+    if (!keepMode) els.modeNew.checked = true;   // 每次新导入重置为默认安全模式（追加），避免上次残留的替换模式误触发
+    show("已解析 " + grid.rows.length + " 行 × " + grid.map.length + " 列（来源：" + sourceLabel + "）。" +
+      (det.hasHeader ? "已按表头自动匹配字段，请核对下方列映射。" : "未识别到表头，已按标准 15 列顺序落位，请核对列映射。"));
+    renderPreview();
+    updateModeHint();
+  }
+
+  // 粘贴 / 测试注入入口：非文件导入，隐藏工作表选择
+  function openWithGrid(rows, sourceLabel) {
+    book = null;
+    els.sheetRow.hidden = true;
+    applyRows(rows, sourceLabel, false);
+  }
+
+  function renderPreview() {
+    els.mapRow.innerHTML = "";
+    grid.map.forEach((key, ci) => {
+      const item = document.createElement("div");
+      item.className = "dm-map-item";
+      const name = document.createElement("span");
+      name.textContent = grid.headerNames[ci] || ("第" + (ci + 1) + "列");
+      name.title = "来源列：" + name.textContent;
+      const sel = document.createElement("select");
+      sel.dataset.ci = String(ci);
+      let opts = '<option value="">（忽略）</option>';
+      FIELDS.forEach(f => { opts += '<option value="' + f.key + '">' + f.label + "</option>"; });
+      sel.innerHTML = opts;
+      sel.value = key || "";
+      sel.addEventListener("change", onMappingChange);
+      item.appendChild(name);
+      item.appendChild(sel);
+      els.mapRow.appendChild(item);
+    });
+    els.mapRow.hidden = false;
+
+    els.gridHead.innerHTML = "<tr><th>#</th>" + grid.map.map(() => "<th></th>").join("") + "</tr>";
+    els.gridBody.innerHTML = "";
+    grid.rows.forEach((row, ri) => {
+      const tr = document.createElement("tr");
+      const idx = document.createElement("td");
+      idx.textContent = String(ri + 1);
+      tr.appendChild(idx);
+      for (let ci = 0; ci < grid.map.length; ci++) {
+        const td = document.createElement("td");
+        if (!grid.map[ci]) td.className = "ignored";
+        const inp = document.createElement("input");
+        inp.type = "text";
+        inp.value = String((row && row[ci]) == null ? "" : row[ci]);
+        inp.dataset.r = String(ri);
+        inp.dataset.c = String(ci);
+        inp.disabled = !grid.map[ci];
+        applyCellMeta(inp, ri, ci);
+        td.appendChild(inp);
+        tr.appendChild(td);
+      }
+      els.gridBody.appendChild(tr);
+    });
+    els.gridWrap.hidden = false;
+    refreshMappingUI();
+    els.confirm.disabled = grid.rows.length === 0;
+  }
+
+  // 列映射变更：更新模型后仅局部刷新（不重建 DOM，保持焦点与滚动位置）
+  function onMappingChange(e) {
+    const sel = e.target;
+    const ci = Number(sel.dataset.ci);
+    const v = sel.value;
+    if (v) grid.map.forEach((k, i) => { if (i !== ci && k === v) grid.map[i] = ""; });   // 同字段去重：其他列置为忽略
+    grid.map[ci] = v;
+    refreshMappingUI();
+  }
+
+  function refreshMappingUI() {
+    els.mapRow.querySelectorAll("select").forEach(sel => {
+      const ci = Number(sel.dataset.ci);
+      const want = grid.map[ci] || "";
+      if (sel.value !== want) sel.value = want;   // 被去重置空的列同步反映（不触发 change）
+    });
+    const ths = els.gridHead.querySelectorAll("th");
+    grid.map.forEach((k, ci) => {
+      const th = ths[ci + 1];                     // 第 0 个是 "#" 列
+      if (!th) return;
+      const name = grid.headerNames[ci] || ("第" + (ci + 1) + "列");
+      const target = name + (k ? " → " + FIELD_LABEL[k] : "");
+      if (th.textContent !== target) th.textContent = target;
+    });
+    els.gridBody.querySelectorAll("input[data-c]").forEach(inp => {
+      const ri = Number(inp.dataset.r), ci = Number(inp.dataset.c);
+      const on = !!grid.map[ci];
+      if (inp.disabled !== !on) inp.disabled = !on;
+      inp.parentNode.classList.toggle("ignored", !on);
+      applyCellMeta(inp, ri, ci);
+    });
+  }
+
+  // ---------- 写入（复用自动保存 + 多端同步链路） ----------
+  // 按项目字段归组：纵向合并单元格（项目文字只在中间行出现）的前导空组并入后组
+  function groupRows() {
+    const get = (r, key) => {
+      for (let c = 0; c < grid.map.length; c++) if (grid.map[c] === key) return String((grid.rows[r] && grid.rows[r][c]) || "").trim();
+      return "";
+    };
+    const norm = (key, v) => NUM_KEYS[key] ? String(v).replace(/[^0-9.]/g, "") : v;
+    const out = [];
+    grid.rows.forEach((_row, r) => {
+      const pvals = {}, svals = {};
+      FIELDS.forEach(f => {
+        const v = norm(f.key, get(r, f.key));
+        if (!v) return;
+        if (f.key.charAt(0) === "p") pvals[f.key.slice(2)] = v;
+        else svals[f.key.slice(2)] = v;
+      });
+      // 分组键只用项目标识字段（项目 + 产品名称）并归一化去空白，避免同项目被拆成多组
+      const sig = [pvals.item, pvals.name].map(v => String(v || "").replace(/\s+/g, "")).join("|");
+      let g = out[out.length - 1];
+      if (!g || (sig.replace(/\|+$/, "") !== "" && sig !== g.__sig)) {
+        g = { __sig: sig, item: "", name: "", draw: "", qty: "", steps: [] };
+        out.push(g);
+      }
+      ["item", "name", "draw", "qty"].forEach(k => { if (pvals[k]) g[k] = pvals[k]; });
+      if (Object.keys(svals).length) g.steps.push(svals);
+      else if (g.steps.length === 0) g.steps.push({});
+    });
+    while (out.length > 1 && ["item", "name", "draw", "qty"].every(k => !out[0][k])) {
+      const lead = out.shift();
+      out[0].steps = lead.steps.concat(out[0].steps);
+    }
+    out.forEach(g => delete g.__sig);
+    return out;
+  }
+
+  // ---------- 结构化输出：固定 15 字段顺序的 JSON ----------
+  function buildCanonicalJson() {
+    const get = (r, key) => {
+      for (let c = 0; c < grid.map.length; c++) if (grid.map[c] === key) return String((grid.rows[r] && grid.rows[r][c]) || "").trim();
+      return "";
+    };
+    return grid.rows.map((_r, ri) => {
+      const o = {};
+      FIELDS.forEach(f => { o[f.label] = get(ri, f.key); });
+      return o;
+    });
+  }
+  async function copyCanonicalJson() {
+    if (!grid || !grid.rows.length) { show("暂无可导出的数据。", true); return; }
+    const text = JSON.stringify(buildCanonicalJson(), null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      show("已复制 " + grid.rows.length + " 行结构化 JSON（固定 15 字段顺序）到剪贴板。");
+    } catch (e) {
+      // 剪贴板 API 不可用（非安全上下文）时降级为临时 textarea
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); show("已复制 " + grid.rows.length + " 行结构化 JSON 到剪贴板。"); }
+      catch (e2) { show("复制失败：请手动选择预览表数据后复制。", true); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  function currentMode() {
+    if (els.modeRep.checked) return "replace";
+    if (els.modeCur.checked) return "current";
+    return "new";
+  }
+
+  // ---------- 模式提示（实时联动当前选中项目 / 危险模式警示） ----------
+  function updateModeHint() {
+    const hint = els.modeHint;
+    hint.className = "dm-mode-hint";
+    els.confirm.classList.toggle("btn-danger", false);
+    if (!grid || !grid.rows.length) { hint.textContent = ""; return; }
+    const m = currentMode();
+    if (m === "current") {
+      const loc = TableModule.locateCursor();
+      let model = [];
+      try { model = JSON.parse(localStorage.getItem("report_structure_v1") || "[]") || []; } catch (e) {}
+      if (loc && model[loc.g]) {
+        const g = model[loc.g];
+        hint.textContent = "将把导入的工序行追加到当前选中项目：" +
+          [g.item, g.name].filter(Boolean).join(" ") + "（第 " + (loc.g + 1) + " 个项目）。";
+      } else {
+        hint.className = "dm-mode-hint warn";
+        hint.textContent = "尚未选中项目：请先关闭本窗口，在报表中点击要写入的项目数据行，再重新打开本窗口。";
+      }
+    } else if (m === "replace") {
+      hint.className = "dm-mode-hint danger";
+      hint.textContent = "危险操作：将用导入结果替换报表中的全部项目，现有内容会被清除（点击确认后还会二次提示）。";
+      els.confirm.classList.toggle("btn-danger", true);
+      els.confirm.textContent = "替换全部项目…";
+    } else {
+      hint.textContent = "导入的项目将追加到现有项目列表末尾，不影响已有数据。";
+    }
+    if (m !== "replace") els.confirm.textContent = "确认写入报表";
+  }
+
+  async function applyParsed(confirmedReplace) {
+    if (!grid || !grid.rows.length || busy) return;
+    const mode = currentMode();
+    if (mode === "current" && !TableModule.canOperate()) {
+      show("未选中项目：请先在报表中点击一个项目数据行，或改选「追加为新项目」。", true);
+      updateModeHint();
+      return;
+    }
+    if (mode === "replace" && !confirmedReplace) {
+      // 二次确认：统计两侧数据规模，弹出醒目警告条，必须点击「确认替换」才会执行
+      let oldModel = [];
+      try { oldModel = JSON.parse(localStorage.getItem("report_structure_v1") || "[]") || []; } catch (e) {}
+      const og = oldModel.length;
+      const os = oldModel.reduce((n, g) => n + (g.steps ? g.steps.length : 0), 0);
+      let out = [];
+      try { out = groupRows(); } catch (e) {}
+      const ng = out.length;
+      const ns = out.reduce((n, g) => n + g.steps.length, 0);
+      els.replaceText.textContent = "即将删除现有 " + og + " 个项目（共 " + os + " 道工序），替换为导入的 " +
+        ng + " 个项目（共 " + ns + " 道工序）。替换后原数据无法恢复，请仔细核对！";
+      els.replaceWarn.hidden = false;
+      els.replaceWarn.scrollIntoView({ block: "nearest" });
+      els.confirm.disabled = true;
+      return;
+    }
+    busy = true;
+    els.confirm.disabled = true;
+    els.replaceWarn.hidden = true;
+    try {
+      show("正在写入报表…");
+      await AutoSaveApp.flushAndSettle();
+      let model;
+      try { model = JSON.parse(localStorage.getItem("report_structure_v1") || "[]") || []; } catch (e) { model = []; }
+      if (mode !== "replace" && (!Array.isArray(model) || !model.length)) throw new Error("报表数据异常，无法写入。");
+
+      const out = groupRows();
+      if (!out.length) throw new Error("没有可写入的数据行。");
+      if (mode === "current" && out.length > 1) out.splice(1);   // 写入当前项目时只取第一组
+
+      // 只收集本次写入的单元格键值（盖时间戳 + 增量广播，防远端旧值回灌）
+      const vals = new Map();
+      let stepCount = 0;
+      const pKeys = { no: "p.0", item: "p.1", name: "p.2", draw: "p.3", qty: "p.4" };
+      const collectGroup = g => {
+        Object.keys(pKeys).forEach(k => { if (g[k]) vals.set(g.id + "." + pKeys[k], g[k]); });
+        g.steps.forEach(s => STEP_KEY_LIST.forEach((k, i) => { if (s[k]) vals.set(g.id + "." + s.id + "." + i, s[k]); }));
+      };
+      const buildGroup = (p, idx) => {
+        const g = { id: TableModule.uid(), no: String(idx + 1), item: p.item, name: p.name, draw: p.draw, qty: p.qty, steps: [] };
+        p.steps.forEach(s => g.steps.push(Object.assign({ id: TableModule.uid() }, s)));
+        if (!g.steps.length) g.steps.push({ id: TableModule.uid() });
+        return g;
+      };
+      if (mode === "replace") {
+        const fresh = [];
+        out.forEach((p, idx) => {
+          const g = buildGroup(p, idx);
+          fresh.push(g);
+          collectGroup(g);
+          stepCount += g.steps.length;
+        });
+        model = fresh;
+      } else if (mode === "new") {
+        out.forEach((p, idx) => {
+          const g = buildGroup(p, model.length + idx);
+          model.push(g);
+          collectGroup(g);                    // 仅广播本次新增的组
+          stepCount += g.steps.length;
+        });
+      } else {
+        const loc = TableModule.locateCursor();
+        if (!loc) throw new Error("未选中项目行。");
+        const g = model[loc.g];
+        const p0 = out[0];
+        ["item", "name", "draw", "qty"].forEach(k => {
+          if (p0[k]) { g[k] = p0[k]; vals.set(g.id + "." + pKeys[k], g[k]); }   // 仅广播实际覆盖的项目字段
+        });
+        p0.steps.forEach(s => {
+          const ns = Object.assign({ id: TableModule.uid() }, s);
+          g.steps.push(ns);
+          STEP_KEY_LIST.forEach((k, i) => { if (ns[k]) vals.set(g.id + "." + ns.id + "." + i, ns[k]); });
+          stepCount++;
+        });
+      }
+      if (!TableModule.adoptModel(model)) throw new Error("数据格式校验未通过（存在空项目）。");
+      AutoSaveApp.afterStructureChange();
+      if (typeof SyncModule !== "undefined") {
+        if (SyncModule.publishCellOps) SyncModule.publishCellOps(vals);
+        if (SyncModule.publishStructure) SyncModule.publishStructure();
+      }
+      closeModal();
+      UIModule.show("success", mode === "replace"
+        ? "替换完成：报表现有 " + out.length + " 个项目（共 " + stepCount + " 道工序），原数据已被清除。"
+        : "数据导入完成：已写入 " + stepCount + " 个工序行" +
+          (mode === "new" ? "（含 " + out.length + " 个新项目）" : "（写入当前选中项目）") + "。");
+    } catch (e) {
+      show("写入失败：" + (e && e.message ? e.message : "未知错误") + "。原有数据未受影响，可修正后重试。", true);
+      els.confirm.disabled = false;
+    } finally {
+      busy = false;
+    }
+  }
+
+  // ---------- 文件导入 ----------
+  function validateFile(file) {
+    if (!file) return "未选择文件。";
+    if (!/\.(xlsx|xlsm)$/i.test(file.name || ""))
+      return "不支持的文件格式：请选择 Excel 文件（.xlsx / .xlsm）。旧版 .xls 请在 Excel 中「另存为 .xlsx」，或直接复制数据后粘贴到报表区域。";
+    if (file.size > MAX_SIZE)
+      return "文件超过 20MB 限制（当前 " + (file.size / 1048576).toFixed(1) + "MB），请精简后重试。";
+    return null;
+  }
+
+  // 填充「选择工作表」下拉：文件导入时始终显示，方便核对当前读取的是哪张表
+  function fillSheetSelect() {
+    els.sheetSel.innerHTML = "";
+    book.sheets.forEach((s, i) => {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = s.name;
+      els.sheetSel.appendChild(opt);
+    });
+    els.sheetSel.value = "0";
+    els.sheetRow.hidden = false;
+  }
+
+  // 读取并预览指定序号的 worksheet（切换工作表时保留已选的写入模式）
+  async function loadBookSheet(idx, keepMode, seq) {
+    const sheet = book.sheets[idx];
+    if (!sheet) return;
+    show("正在读取工作表「" + sheet.name + "」…");
+    const rows = await readSheet(book.zip, sheet.path);
+    if (seq != null && seq !== seqNo) return;
+    const label = "文件 " + book.name + (book.sheets.length > 1 ? " · 工作表「" + sheet.name + "」" : "");
+    applyRows(rows, label, keepMode);
+    els.sheetRow.hidden = false;
+  }
+
+  async function handleFile(file) {
+    const err = validateFile(file);
+    openModal();
+    book = null;
+    els.sheetRow.hidden = true;
+    els.mapRow.hidden = true;
+    els.gridWrap.hidden = true;
+    els.confirm.disabled = true;
+    els.replaceWarn.hidden = true;
+    if (err) { show(err, true); return; }
+    const seq = ++seqNo;
+    show("正在解析文件：" + file.name + " …");
+    try {
+      const zip = openZip(await file.arrayBuffer());
+      const sheets = await listSheets(zip);
+      if (!sheets.length) throw new Error("xlsx 中未找到工作表数据");
+      if (seq !== seqNo) return;
+      book = { zip: zip, sheets: sheets, name: file.name };
+      fillSheetSelect();
+      await loadBookSheet(0, false, seq);
+    } catch (e) {
+      if (seq !== seqNo) return;
+      show("解析失败：" + (e && e.message ? e.message : "未知错误") + "。", true);
+    }
+  }
+
+  // ---------- 粘贴导入 ----------
+  function onPaste(e) {
+    if (els.modal && !els.modal.hidden) return;          // 模态框内的粘贴走默认行为
+    const target = e.target;
+    const td = target && target.closest ? target.closest("#tableBody td") : null;
+    if (!td) return;
+    const cd = e.clipboardData || window.clipboardData;
+    if (!cd) return;
+    const text = cd.getData("text/plain") || "";
+    const html = cd.getData("text/html") || "";
+    let rows = null, src = "";
+    if (text.indexOf("\t") >= 0) {
+      rows = parseTSV(text);
+      src = "剪贴板（Excel 复制）";
+    } else if (/<t[ad][\s>]/i.test(html)) {
+      const g = parseHtmlTable(html);
+      if (g && g.length && g.some(r => r.length >= 2)) { rows = g; src = "剪贴板（HTML 表格）"; }
+    }
+    if (!rows) return;                                   // 单格 / 普通文本粘贴：交给浏览器默认行为
+    e.preventDefault();
+    openWithGrid(rows, src);
+  }
+
+  function init() {
+    els = {
+      modal: $("dmModal"), progress: $("dmProgress"), mapRow: $("dmMapRow"),
+      gridWrap: $("dmGridWrap"), gridHead: $("dmGridHead"), gridBody: $("dmGridBody"),
+      confirm: $("dmConfirm"), modeCur: $("dmModeCur"), fileInput: $("dmFileInput"),
+      modeNew: $("dmModeNew"), modeRep: $("dmModeRep"), modeHint: $("dmModeHint"),
+      replaceWarn: $("dmReplaceWarn"), replaceText: $("dmReplaceText"),
+      replaceYes: $("dmReplaceYes"), replaceNo: $("dmReplaceNo"),
+      sheetRow: $("dmSheetRow"), sheetSel: $("dmSheetSel")
+    };
+    $("btnDataImport").addEventListener("click", () => els.fileInput.click());
+    $("dmRechoose").addEventListener("click", () => els.fileInput.click());
+    $("dmCopyJson").addEventListener("click", copyCanonicalJson);
+    $("dmCancel").addEventListener("click", closeModal);
+    $("dmClose").addEventListener("click", closeModal);
+    els.confirm.addEventListener("click", () => applyParsed(false));
+    // 替换模式二次确认条
+    els.replaceYes.addEventListener("click", () => applyParsed(true));
+    els.replaceNo.addEventListener("click", () => {
+      els.replaceWarn.hidden = true;
+      if (!busy) els.confirm.disabled = !grid || !grid.rows.length;
+    });
+    // 切换写入模式：实时刷新提示；撤销未完成的替换确认
+    document.querySelectorAll('input[name="dmMode"]').forEach(radio => {
+      radio.addEventListener("change", () => {
+        els.replaceWarn.hidden = true;
+        if (!busy) els.confirm.disabled = !grid || !grid.rows.length;
+        updateModeHint();
+      });
+    });
+    // 预览表内容编辑：写回模型 + 即时校验
+    els.gridBody.addEventListener("input", e => {
+      const t = e.target;
+      if (t && t.dataset.r != null && grid) {
+        const ri = Number(t.dataset.r), ci = Number(t.dataset.c);
+        if (!grid.rows[ri]) grid.rows[ri] = [];
+        grid.rows[ri][ci] = t.value;
+        applyCellMeta(t, ri, ci);
+      }
+    });
+    // 切换工作表：重新读取所选 worksheet 并刷新预览（保留已选的写入模式）
+    els.sheetSel.addEventListener("change", () => {
+      if (!book) return;
+      loadBookSheet(Number(els.sheetSel.value) || 0, true, ++seqNo);
+    });
+    els.fileInput.addEventListener("change", () => {
+      const file = els.fileInput.files && els.fileInput.files[0];
+      els.fileInput.value = "";          // 允许重复选择同一文件
+      if (file) handleFile(file);
+    });
+    document.addEventListener("paste", onPaste);
+  }
+
+  // 测试诊断口：_testFromRows 供自动化测试直接注入二维数组，跳过文件选择
+  return {
+    init: init,
+    _testFromRows: function (rows, label) { openWithGrid(rows, label || "测试数据"); },
+    _testFile: function (file) { return handleFile(file); },
+    _testPaste: function (text) { onPaste({ target: document.querySelector("#tableBody td"), clipboardData: { getData: function (t) { return t === "text/plain" ? text : ""; } }, preventDefault: function () {} }); },
+    _dbg: function (full) {
+      const base = { busy: busy, rows: grid ? grid.rows.length : 0, mapped: grid ? grid.map.filter(Boolean).length : 0 };
+      if (full && grid) { base.map = grid.map.slice(); base.headerNames = grid.headerNames.slice(); base.hasHeader = grid.hasHeader; base.rowsData = grid.rows.slice(0, 30); }
+      return base;
+    }
+  };
+})();
+
 /* ================= 启动 ================= */
 TableModule.init();
 UIModule.bind();
 AutoSaveApp.init();
 SyncModule.init();
+StatsModule.init();
+DataImportModule.init();
 </script>
 </body>
 </html>
