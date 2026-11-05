@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FANUC Plus 系列加工中心参数与系统变量离线速查手册">
+  <title>FANUC Plus 加工中心参数速查</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到参数列表</a>
+
+  <header class="app-header" id="appHeader">
+    <div class="header-main">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">FANUC</span>
+        <div class="brand-text">
+          <h1>FANUC Plus 加工中心参数</h1>
+          <p class="subtitle">M 系列铣削/加工中心口径 · 参数 + 系统变量 · 当前模块 <span id="totalCount">--</span></p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="themeToggle" class="icon-btn" type="button" aria-label="切换深色或浅色主题">深色</button>
+        <button id="sidebarToggle" class="icon-btn mobile-only" type="button" aria-expanded="false" aria-controls="sidebar">筛选目录</button>
+      </div>
+    </div>
+
+    <div id="moduleTabs" class="module-tabs" role="tablist" aria-label="主模块切换">
+      <button class="module-tab is-active" type="button" data-module="params" role="tab" aria-pressed="true">
+        参数<span class="tab-count">0</span>
+      </button>
+      <button class="module-tab" type="button" data-module="sysvars" role="tab" aria-pressed="false">
+        系统变量<span class="tab-count">0</span>
+      </button>
+    </div>
+
+    <div class="search-bar">
+      <input id="searchInput" type="search" autocomplete="off" spellcheck="false"
+             placeholder="搜索编号或名称，如 1006、1815#5、#3000、主轴、刀库"
+             aria-label="搜索参数号、系统变量号、名称或说明">
+      <button id="searchClear" class="search-clear" type="button" hidden>清除</button>
+    </div>
+    <p id="searchHint" class="search-hint">支持参数号、位参数（如 1815#5）、名称、功能说明与关联参数；系统变量支持 #3000、#1000.0、#1000–#1015。手机端点“查看详情”可全屏阅读。</p>
+  </header>
+
+  <div class="page-shell">
+    <aside id="sidebar" class="sidebar" aria-label="筛选与快捷入口">
+      <div class="sidebar-head mobile-only">
+        <strong>筛选目录</strong>
+        <button id="sidebarClose" class="icon-btn" type="button">关闭</button>
+      </div>
+
+      <section id="seriesPanel" class="panel">
+        <h2>系统系列</h2>
+        <div id="seriesFilter" class="chip-list" role="group" aria-label="按系统系列筛选"></div>
+        <p class="panel-note">参数含义、默认值和取值范围随系统型号与版本变化，请以随机官方手册为准。</p>
+      </section>
+
+      <section class="panel">
+        <h2>分类 <span id="categoryNote" class="panel-sub">（当前系列）</span></h2>
+        <nav id="categoryList" class="category-list" aria-label="按分类筛选"></nav>
+      </section>
+
+      <section class="panel">
+        <h2>我的</h2>
+        <button id="favOnlyBtn" class="wide-btn" type="button" aria-pressed="false">仅显示收藏（0）</button>
+        <h3 class="minor-title">最近浏览</h3>
+        <div id="recentList" class="recent-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>数据概况</h2>
+        <div id="statsBox" class="stats-box"></div>
+      </section>
+    </aside>
+
+    <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
+
+    <main id="main" class="main">
+      <div class="notice" role="note">
+        <strong>免责声明：</strong>修改参数存在风险，可能导致机床动作异常、撞机或丢失原点；系统变量误写会直接改变机床行为、触发报警或驱动外围动作。务必先备份参数（含 PMC 参数与刀库数据），参照官方手册和实际机型确认后谨慎修改。本页仅作速查参考，不替代官方手册。
+      </div>
+
+      <div id="mobileFilterBar" class="mobile-filter-bar" aria-label="分类快捷筛选">
+        <div id="mobileCategoryList" class="mobile-category-list" role="group" aria-label="按分类筛选（移动端）"></div>
+      </div>
+
+      <section id="overview" class="overview" aria-label="收录范围与号段覆盖概览">
+        <div class="overview-head">
+          <h2>号段覆盖概览</h2>
+          <p>本库按 FANUC Plus 系列加工中心（M 系列铣削/加工中心）口径筛选，车床（T 系列）、线切割、磨床专属项已移除；不确定项保留并标注待核实。本页是“常用项整理”，不是完整手册，下面列出两个模块的条目数、资料待核实数量、号段覆盖与移除口径。</p>
+        </div>
+        <div id="overviewCounts" class="overview-counts"></div>
+        <div class="coverage-grid">
+          <div class="coverage-col">
+            <h3>参数号段（params.js + params-extra.js）</h3>
+            <div id="coverageParams" class="coverage-list"></div>
+          </div>
+          <div class="coverage-col">
+            <h3>系统变量区间（sysvars.js）</h3>
+            <div id="coverageSysvars" class="coverage-list"></div>
+          </div>
+        </div>
+        <div class="pending-box">
+          <h3>未收录 / 待补充说明</h3>
+          <div id="pendingList"></div>
+        </div>
+      </section>
+
+      <div id="dataWarning" class="data-warning" role="alert" hidden></div>
+
+      <div class="toolbar">
+        <div id="resultSummary" class="result-summary" aria-live="polite">正在加载参数数据…</div>
+        <button id="resetFilters" class="wide-btn compact" type="button">重置筛选</button>
+      </div>
+
+      <section id="paramGrid" class="param-grid" aria-label="参数列表"></section>
+
+      <div id="emptyState" class="empty-state" hidden>
+        <h2 id="emptyTitle">没有找到匹配的参数</h2>
+        <p id="emptyText"></p>
+        <div id="emptySuggestions" class="empty-suggestions"></div>
+        <div class="empty-actions">
+          <button id="clearSearchBtn" class="wide-btn" type="button">清除搜索</button>
+          <button id="resetAllBtn" class="wide-btn" type="button">重置全部筛选</button>
+        </div>
+      </div>
+
+      <footer class="site-footer">
+        <p><strong>适用范围：</strong>本页按 FANUC Plus 系列加工中心（M 系列铣削/加工中心）口径筛选，已移除车床（T 系列）等专属项；保留但适用性不确定的条目在卡片备注中标注“待核实”。</p>
+        <p><strong>使用须知：</strong>本页参数与系统变量摘要来自 FANUC 说明书相关章节与公开资料整理，未标注具体页码，避免伪造出处。不同系统型号、软件版本、机床厂家配置均可能不同，所有默认值、范围、位定义和变量读写属性请以随机官方手册及机床电气图为准。</p>
+        <p><strong>系统变量特别提醒：</strong>向接口信号变量（#1000/#1100 区）、刀补变量、工件坐标系变量或保持型公共变量写入值，会直接改变机床行为、触发报警或驱动外围动作；不确定时只读不写，并先做空运行验证。</p>
+        <p>数据文件：<code>params.js</code>、<code>params-extra.js</code>、<code>sysvars.js</code>；页面与逻辑：<code>index.html</code>、<code>styles.css</code>、<code>app.js</code>。本页可双击 <code>index.html</code> 离线使用，收藏、最近浏览和主题设置保存在本机浏览器 localStorage（收藏与最近浏览按模块分别保存）。</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="params.js"></script>
+  <script src="params-extra.js"></script>
+  <script src="sysvars.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
