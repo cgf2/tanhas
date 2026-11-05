@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>G 代码解析 · 走刀轨迹预览</title>
+<style>
+:root{
+  --bg:#f2f4f7;
+  --panel:#ffffff;
+  --line:#e4e7ec;
+  --line-soft:#f2f4f7;
+  --text:#101828;
+  --muted:#667085;
+  --faint:#98a2b3;
+  --primary:#0f766e;
+  --primary-dark:#0b5f58;
+  --danger:#b42318;
+  --danger-soft:#fff7f6;
+  --warn:#b54708;
+  --warn-soft:#fffdf5;
+  --mono:"Cascadia Code","JetBrains Mono",Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+#app{height:100vh;display:flex;flex-direction:column;min-height:0}
+
+/* ---------- 顶栏 ---------- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:12px 20px;background:#0f172a;color:#e5e7eb;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{
+  width:38px;height:38px;border-radius:9px;flex:none;
+  background:linear-gradient(135deg,#14b8a6,#0f766e);
+  display:grid;place-items:center;font-size:12px;font-weight:700;
+  letter-spacing:.5px;color:#ecfdf5;border:1px solid rgba(255,255,255,.14);
+}
+.brand h1{font-size:15px;font-weight:600;margin:0;letter-spacing:.2px}
+.brand p{margin:3px 0 0;font-size:11.5px;color:#94a3b8}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;
+  border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;
+  border:1px solid transparent;font-family:inherit;
+}
+.pill.loading{background:#1e293b;color:#cbd5e1;border-color:#334155}
+.pill.ok{background:rgba(22,163,74,.16);color:#86efac;border-color:rgba(34,197,94,.32)}
+.pill.warn{background:rgba(245,158,11,.16);color:#fcd34d;border-color:rgba(245,158,11,.35)}
+.pill.err{background:rgba(239,68,68,.16);color:#fca5a5;border-color:rgba(239,68,68,.38)}
+
+/* ---------- 主区 ---------- */
+main{
+  flex:1;min-height:0;display:grid;gap:14px;padding:14px 16px 16px;
+  grid-template-columns:minmax(400px,.92fr) minmax(0,1.08fr);
+}
+.panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  display:flex;flex-direction:column;min-height:0;overflow:hidden;
+  box-shadow:0 1px 2px rgba(16,24,40,.04);
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 12px;min-height:44px;border-bottom:1px solid var(--line);flex-wrap:wrap;
+}
+.panel-head h2{font-size:13px;font-weight:600;margin:0;display:flex;align-items:center;gap:6px}
+.head-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.btn{
+  font-family:inherit;font-size:12px;height:30px;padding:0 10px;border-radius:7px;
+  border:1px solid #d0d5dd;background:#fff;color:#344054;cursor:pointer;
+  transition:background .15s,border-color .15s;
+}
+.btn:hover{border-color:#98a2b3;background:#f9fafb}
+.btn.primary{height:32px;padding:0 16px;background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+.btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+.btn.ghost{background:transparent;border-color:transparent;color:#475467;padding:0 8px}
+.btn.ghost:hover{background:#f2f4f7;border-color:#e4e7ec}
+.btn.icon{width:30px;padding:0;font-size:16px;line-height:1}
+.tag{
+  font-family:var(--mono);font-size:10.5px;color:#0f766e;background:#e6f4f1;
+  border:1px solid #cce9e3;border-radius:5px;padding:2px 6px;white-space:nowrap;
+}
+
+/* ---------- 代码区 ---------- */
+#editor{
+  flex:0 0 34%;min-height:150px;width:100%;border:0;border-bottom:1px solid var(--line);
+  padding:12px 14px;background:#fcfcfd;color:#101828;
+  font-family:var(--mono);font-size:12.5px;line-height:1.7;
+  resize:none;outline:none;tab-size:2;white-space:pre;overflow:auto;
+}
+#editor:focus{background:#fff;box-shadow:inset 0 0 0 2px rgba(15,118,110,.12)}
+.parse-bar{
+  display:flex;align-items:center;gap:12px;padding:8px 12px;
+  border-bottom:1px solid var(--line);background:#fff;flex-wrap:wrap;
+}
+#summaryText{font-size:11.5px;color:var(--muted);line-height:1.4}
+.list-head{
+  display:flex;justify-content:space-between;gap:8px;padding:7px 14px;
+  font-size:10.8px;color:var(--faint);background:#f9fafb;
+  border-bottom:1px solid var(--line);letter-spacing:.2px;
+}
+.line-list{flex:1;min-height:110px;overflow-y:auto;background:#fff}
+.line-row{
+  display:grid;grid-template-columns:42px minmax(0,1fr);gap:8px;
+  padding:7px 12px 8px 8px;border-bottom:1px solid var(--line-soft);
+  border-left:3px solid transparent;
+}
+.line-row.error{background:var(--danger-soft);border-left-color:#ef4444}
+.line-row.warn{background:var(--warn-soft);border-left-color:#f59e0b}
+.line-row.blank{opacity:.5}
+.line-row.comment{background:#fbfcfd}
+.ln{font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right;padding-top:2px;line-height:1.5}
+.row-main{min-width:0}
+.row-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.code-line{
+  font-family:var(--mono);font-size:12px;line-height:1.55;color:#101828;
+  white-space:pre-wrap;word-break:break-word;min-width:0;
+}
+.badge{font-size:10px;padding:1px 6px;border-radius:999px;white-space:nowrap;flex:none}
+.badge.error{background:#fee4e2;color:#b42318}
+.badge.warn{background:#fef0c7;color:#b54708}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.chip{
+  font-size:10.5px;line-height:16px;padding:0 6px;border-radius:4px;
+  background:#f2f4f7;color:#475467;font-family:var(--mono);white-space:nowrap;
+}
+.chip.cmd{background:#e6f4f1;color:#0f766e;font-weight:600}
+.msg{display:flex;gap:6px;margin-top:4px;font-size:11px;line-height:1.55}
+.msg-tag{flex:none;font-size:10px;padding:0 5px;border-radius:3px;height:16px;line-height:16px;margin-top:1px}
+.msg.err{color:var(--danger)}
+.msg.err .msg-tag{background:#ef4444;color:#fff}
+.msg.warn{color:#93370d}
+.msg.warn .msg-tag{background:#f59e0b;color:#fff}
+.msg.note{color:#475467}
+.msg.note .msg-tag{background:#e0f2fe;color:#0369a1}
+.empty-list{padding:24px 16px;text-align:center;color:var(--faint);font-size:12px}
+
+/* ---------- 预览区 ---------- */
+.canvas-wrap{position:relative;flex:1;min-height:260px;background:#fff;overflow:hidden}
+#canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#canvas.grabbing{cursor:grabbing}
+.readout{
+  position:absolute;right:10px;bottom:10px;padding:3px 8px;border-radius:6px;
+  background:rgba(255,255,255,.92);border:1px solid var(--line);
+  font-family:var(--mono);font-size:10.5px;color:#475467;pointer-events:none;
+}
+.empty-hint{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:20px;text-align:center;color:var(--faint);font-size:12.5px;pointer-events:none;
+}
+.legend{
+  display:flex;align-items:center;flex-wrap:wrap;gap:12px;
+  padding:7px 12px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);background:#fff;
+}
+.legend .item{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.dashline{width:22px;height:0;border-top:1.8px dashed #64748b}
+.solidline{width:22px;height:0;border-top:2.2px solid var(--primary)}
+.marker-dot{width:7px;height:7px;border-radius:50%;border:2px solid #16a34a;background:#fff}
+.marker-sq{width:8px;height:8px;background:#334155;border-radius:1px}
+.zbar{
+  width:64px;height:8px;border-radius:2px;
+  background:linear-gradient(90deg,hsl(210,72%,44%),hsl(122,72%,44%),hsl(35,85%,50%));
+}
+.hint{margin-left:auto;color:var(--faint);font-size:10.5px}
+.stats{
+  display:flex;flex-wrap:wrap;gap:4px 14px;padding:7px 12px 9px;
+  border-top:1px dashed #eef1f4;font-size:10.8px;color:var(--muted);background:#fbfcfd;
+}
+.stats span{white-space:nowrap}
+.stats .bad{color:var(--danger);font-weight:600}
+
+/* ---------- 滚动条 ---------- */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:#d0d5dd;border-radius:8px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width:900px){
+  html,body{height:auto}
+  #app{height:auto;min-height:100vh}
+  .topbar{padding:11px 14px;gap:10px}
+  .brand h1{font-size:14px}
+  .brand p{font-size:11px}
+  main{
+    display:flex;flex-direction:column;gap:12px;
+    padding:12px 10px 16px;flex:none;
+  }
+  .code-panel{height:78vh;min-height:560px}
+  .preview-panel{height:72vh;min-height:460px}
+  .hint{display:none}
+  #editor{font-size:12px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">GC</div>
+      <div>
+        <h1>G 代码解析 · 走刀轨迹预览</h1>
+        <p>纯前端单文件原型 · G00 / G01 / G02 / G03 · XY 平面</p>
+      </div>
+    </div>
+    <div class="topstats">
+      <span class="pill loading" id="statusPill">解析中…</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel code-panel">
+      <div class="panel-head">
+        <h2>① G 代码</h2>
+        <div class="head-actions">
+          <button class="btn ghost" id="btnSample" type="button">示例程序</button>
+          <button class="btn ghost" id="btnBad" type="button">错误示例</button>
+          <button class="btn ghost" id="btnClear" type="button">清空</button>
+        </div>
+      </div>
+      <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="在此粘贴 G 代码，例如：&#10;G21 G90 G17&#10;G00 X0 Y0 Z10&#10;G01 Z-2 F300&#10;G01 X50 F200"></textarea>
+      <div class="parse-bar">
+        <button class="btn primary" id="btnParse" type="button">解析并预览</button>
+        <span id="summaryText">—</span>
+      </div>
+      <div class="list-head">
+        <span>逐行解析结果</span>
+        <span id="listHint">—</span>
+      </div>
+      <div class="line-list" id="lineList"></div>
+    </section>
+
+    <section class="panel preview-panel">
+      <div class="panel-head">
+        <h2>② 走刀轨迹</h2>
+        <div class="head-actions">
+          <span class="tag">G17 · XY 平面</span>
+          <button class="btn ghost" id="btnFit" type="button">自适应</button>
+          <button class="btn icon" id="btnZoomIn" type="button" title="放大">+</button>
+          <button class="btn icon" id="btnZoomOut" type="button" title="缩小">−</button>
+        </div>
+      </div>
+      <div class="canvas-wrap" id="canvasWrap">
+        <canvas id="canvas"></canvas>
+        <div class="readout" id="readout">X — &nbsp; Y —</div>
+        <div class="empty-hint" id="emptyHint">解析后在此显示轨迹</div>
+      </div>
+      <div class="legend">
+        <span class="item"><i class="dashline"></i>G00 快速（虚线）</span>
+        <span class="item"><i class="solidline"></i>切削 G01/G02/G03</span>
+        <span class="item"><i class="marker-dot"></i>起点</span>
+        <span class="item"><i class="marker-sq"></i>终点</span>
+        <span class="item"><i class="zbar"></i>颜色 = Z 高度 <b id="zLegendText">Z —</b></span>
+        <span class="hint">滚轮缩放 · 拖拽平移 · 双指缩放</span>
+      </div>
+      <div class="stats" id="statsBar"><span>—</span></div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   核心：解析 / 校验 / 轨迹几何（不依赖 DOM，可直接移植）
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var TAU = Math.PI * 2;
+  var MOTION_CODES = ['G00', 'G01', 'G02', 'G03'];
+
+  var G_KNOWN = [
+    'G00','G01','G02','G03','G04',
+    'G17','G18','G19','G20','G21','G28',
+    'G40','G41','G42','G43','G44','G49',
+    'G54','G55','G56','G57','G58','G59',
+    'G90','G91','G92','G93','G94','G95'
+  ];
+  var M_KNOWN = ['M00','M01','M02','M03','M04','M05','M06','M07','M08','M09','M30','M98','M99'];
+  var ADDRESS_KNOWN = ['N','O','G','X','Y','Z','I','J','K','R','F','S','M','P','Q','T','L','H','D'];
+
+  var G_LABELS = {
+    'G00':'快速定位','G01':'直线插补','G02':'顺时针圆弧','G03':'逆时针圆弧','G04':'暂停',
+    'G17':'XY 平面','G18':'ZX 平面','G19':'YZ 平面','G20':'英寸单位','G21':'毫米单位',
+    'G28':'回参考点','G40':'取消刀补','G41':'左刀补','G42':'右刀补',
+    'G43':'刀长补偿 +','G44':'刀长补偿 −','G49':'取消刀长补偿',
+    'G54':'工件坐标系 1','G55':'工件坐标系 2','G56':'工件坐标系 3',
+    'G57':'工件坐标系 4','G58':'工件坐标系 5','G59':'工件坐标系 6',
+    'G90':'绝对坐标','G91':'增量坐标','G92':'坐标系设定',
+    'G93':'反比时间进给','G94':'每分钟进给','G95':'每转进给'
+  };
+  var M_LABELS = {
+    'M00':'程序暂停','M01':'计划暂停','M02':'程序结束','M03':'主轴正转','M04':'主轴反转',
+    'M05':'主轴停止','M06':'换刀','M07':'雾化冷却','M08':'冷却开','M09':'冷却关',
+    'M30':'程序结束并复位','M98':'调用子程序','M99':'返回主程序'
+  };
+
+  var SAMPLE_PROGRAM = [
+    'N10 G21 G90 G17 (毫米 / 绝对坐标 / XY 平面)',
+    'N20 G00 X0 Y0 Z10 S1200 M03',
+    'N30 G00 X10 Y10',
+    'N40 G01 Z-2 F300',
+    'N50 G01 X60 Y10 F200',
+    'N60 G02 X80 Y30 R20',
+    'N70 G01 X80 Y60',
+    'N80 G03 X60 Y80 R20',
+    'N90 G01 X30 Y80',
+    'N100 G02 X10 Y60 R20',
+    'N110 G01 X10 Y30',
+    'N120 G03 X30 Y10 R20',
+    'N130 G01 X60 Y10',
+    'N140 G01 Z-4 F250',
+    'N150 G01 X60 Y40',
+    'N160 G00 Z10',
+    'N170 M05',
+    'N180 G00 X0 Y0',
+    'N190 M30'
+  ].join('\n');
+
+  var BAD_SAMPLE = [
+    '(错误示例：用于检查各类校验提示)',
+    'G17',
+    'G01 X0 Y0 F100',
+    'G00 X20 Y10',
+    'G01 X50 Y10 F200',
+    'G02 X80 Y10 R-5 I5 (R 与 I/J 冲突)',
+    'G03 X90 Y20 R0 (半径为 0)',
+    'G01 X90 Y40 F0 (进给速度非法)',
+    'G99 X10 Y10 (未知 G 代码)',
+    'M77 (未知 M 代码)',
+    'G02 X30 Y40 (缺少 R 或 I/J)',
+    'G01 X10 Y20 F150'
+  ].join('\n');
+
+  function fmt(v) {
+    var r = Math.round(v * 1000) / 1000;
+    if (Object.is(r, -0)) r = 0;
+    return String(r);
+  }
+
+  function fmtDeg(rad) {
+    return fmt(rad * 180 / Math.PI);
+  }
+
+  function inSet(set, v) { return set.indexOf(v) >= 0; }
+
+  function getWord(words, letter) {
+    for (var i = 0; i < words.length; i++) {
+      if (words[i].letter === letter) return words[i];
+    }
+    return null;
+  }
+
+  function hasLetter(words, letter) { return !!getWord(words, letter); }
+
+  function unitFactor(units) { return units === 'G20' ? 25.4 : 1; }
+
+  function stripComments(raw) {
+    var code = '';
+    var comment = [];
+    for (var i = 0; i < raw.length; i++) {
+      var ch = raw.charAt(i);
+      if (ch === '(') {
+        var end = raw.indexOf(')', i + 1);
+        if (end < 0) return { error: '注释括号「(」未闭合', code: code, comment: '' };
+        comment.push(raw.slice(i + 1, end));
+        i = end;
+      } else if (ch === ';') {
+        comment.push(raw.slice(i + 1));
+        break;
+      } else {
+        code += ch;
+      }
+    }
+    return { code: code, comment: comment.join(' ').trim() };
+  }
+
+  function tokenize(code) {
+    var words = [];
+    var i = 0;
+    while (i < code.length) {
+      var ch = code.charAt(i);
+      if (ch === ' ' || ch === '\t') { i++; continue; }
+      if (/[A-Za-z]/.test(ch)) {
+        var letter = ch.toUpperCase();
+        var j = i + 1;
+        if (code.charAt(j) === '+' || code.charAt(j) === '-') j++;
+        var hasDigit = false;
+        while (j < code.length && /[0-9]/.test(code.charAt(j))) { hasDigit = true; j++; }
+        if (code.charAt(j) === '.') {
+          j++;
+          while (j < code.length && /[0-9]/.test(code.charAt(j))) { hasDigit = true; j++; }
+        }
+        var numText = code.slice(i + 1, j);
+        if (!hasDigit) return { error: '代码「' + letter + '」后面缺少数值', words: words };
+        var value = Number(numText);
+        if (!isFinite(value)) return { error: '数值「' + numText + '」无法解析', words: words };
+        words.push({ letter: letter, raw: code.slice(i, j), value: value, valueText: numText });
+        i = j;
+      } else if (ch === '.') {
+        return { error: '数值中出现了多余的小数点（如 X1.2.3）', words: words };
+      } else {
+        return { error: '无法识别的字符「' + ch + '」', words: words };
+      }
+    }
+    return { words: words };
+  }
+
+  function arcSweep(cx, cy, sx, sy, ex, ey, dir) {
+    var a0 = Math.atan2(sy - cy, sx - cx);
+    var a1 = Math.atan2(ey - cy, ex - cx);
+    var sweep;
+    if (dir > 0) sweep = ((a1 - a0) % TAU + TAU) % TAU;
+    else sweep = ((a0 - a1) % TAU + TAU) % TAU;
+    if (sweep < 1e-9) sweep = TAU;
+    return { a0: a0, sweep: sweep };
+  }
+
+  function sampleArc(cx, cy, r, a0, sweep, dir, sx, sy, ex, ey, z0, z1) {
+    var arcLen = r * sweep;
+    var n = Math.max(12, Math.min(240, Math.ceil(arcLen / 1.2)));
+    var pts = [];
+    for (var k = 0; k <= n; k++) {
+      var t = k / n;
+      var ang = a0 + dir * sweep * t;
+      pts.push({ x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang), z: z0 + (z1 - z0) * t });
+    }
+    pts[0] = { x: sx, y: sy, z: z0 };
+    pts[n] = { x: ex, y: ey, z: z1 };
+    return pts;
+  }
+
+  function applyModal(code, row, next, warned) {
+    switch (code) {
+      case 'G17': case 'G18': case 'G19':
+        next.plane = code;
+        row.chips.push(code + ' ' + G_LABELS[code]);
+        return;
+      case 'G20': case 'G21':
+        next.units = code;
+        row.chips.push(code + ' ' + G_LABELS[code]);
+        if (code === 'G20') row.notes.push('英寸单位：坐标与 F 按 1 in = 25.4 mm 换算');
+        return;
+      case 'G90': case 'G91':
+        next.mode = code;
+        row.chips.push(code + ' ' + G_LABELS[code]);
+        return;
+      case 'G40':
+        row.chips.push('G40 取消刀补');
+        return;
+      case 'G41': case 'G42':
+        row.chips.push(code + ' ' + G_LABELS[code]);
+        if (!warned.cutter) {
+          row.warnings.push(code + ' 刀具半径补偿：本原型不模拟补偿，轨迹按编程路径显示');
+          warned.cutter = true;
+        }
+        return;
+      case 'G43': case 'G44':
+        row.chips.push(code + ' ' + G_LABELS[code]);
+        if (!warned.toolLen) {
+          row.warnings.push(code + ' 刀具长度补偿：本原型不模拟补偿');
+          warned.toolLen = true;
+        }
+        return;
+      case 'G49':
+        row.chips.push('G49 取消刀长补偿');
+        return;
+      case 'G54': case 'G55': case 'G56': case 'G57': case 'G58': case 'G59':
+        row.chips.push(code + ' ' + G_LABELS[code]);
+        if (!warned.wcs) {
+          row.warnings.push('工件坐标系偏置 G54–G59：本原型不模拟偏置，按编程坐标显示');
+          warned.wcs = true;
+        }
+        return;
+      case 'G92':
+        row.chips.push('G92 坐标系设定');
+        if (!warned.g92) {
+          row.warnings.push('G92 坐标系设定：本原型不模拟，已忽略');
+          warned.g92 = true;
+        }
+        return;
+      case 'G28':
+        row.chips.push('G28 回参考点');
+        if (!warned.g28) {
+          row.warnings.push('G28 回参考点：本原型不模拟回零动作，已忽略');
+          warned.g28 = true;
+        }
+        return;
+      case 'G93':
+        row.chips.push('G93 反比时间进给');
+        if (!warned.g93) {
+          row.warnings.push('G93 反比时间进给：本原型不支持，已忽略');
+          warned.g93 = true;
+        }
+        return;
+      case 'G94': case 'G95':
+        row.chips.push(code + ' ' + G_LABELS[code]);
+        return;
+      case 'G04':
+        row.chips.push('G04 暂停');
+        return;
+      default:
+        row.chips.push(code + ' ' + (G_LABELS[code] || ''));
+    }
+  }
+
+  function parseProgram(source) {
+    var lines = String(source == null ? '' : source).replace(/\r\n?/g, '\n').split('\n');
+    var rows = [];
+    var moves = [];
+    var st = { x:0, y:0, z:0, motion:null, plane:'G17', units:'G21', mode:'G90', feed:null, spindle:null, tool:null };
+    var declared = { mode:false, units:false, plane:false };
+    var warned = { mode:false, units:false, plane:false, feed:false, cutter:false, toolLen:false, wcs:false, g92:false, g28:false, g93:false, sub:false };
+
+    lines.forEach(function (raw, idx) {
+      var row = {
+        n: idx + 1, raw: raw, comment: '', chips: [], errors: [], warnings: [], notes: [], status: 'ok'
+      };
+      var rawTrim = raw.trim();
+      var finish = function () {
+        if (row.errors.length) row.status = 'error';
+        else if (row.warnings.length) row.status = 'warn';
+        else if (row.status !== 'comment' && row.status !== 'blank') row.status = 'ok';
+        rows.push(row);
+      };
+
+      if (!rawTrim) { row.status = 'blank'; finish(); return; }
+      if (rawTrim === '%') {
+        row.status = 'comment'; row.comment = '程序起止符 %'; finish(); return;
+      }
+
+      var sc = stripComments(raw);
+      if (sc.error) {
+        row.errors.push(sc.error);
+        row.chips = [];
+        row.comment = '';
+        finish();
+        return;
+      }
+      row.comment = sc.comment || '';
+      if (!sc.code.trim()) {
+        row.status = 'comment';
+        finish();
+        return;
+      }
+
+      var tk = tokenize(sc.code);
+      if (tk.error) {
+        row.errors.push(tk.error);
+        row.chips = (tk.words || []).map(function (w) { return w.raw; });
+        finish();
+        return;
+      }
+      var words = tk.words;
+
+      // 地址字支持检查
+      var badAddress = false;
+      words.forEach(function (w) {
+        if (ADDRESS_KNOWN.indexOf(w.letter) < 0) {
+          row.errors.push('不支持的地址字「' + w.letter + '」' +
+            (['A','B','C'].indexOf(w.letter) >= 0 ? '（本原型仅处理 XY 平面，不支持回转轴）' : ''));
+          badAddress = true;
+        }
+      });
+      if (badAddress) {
+        row.chips = words.map(function (w) { return w.letter + ' ' + w.valueText; });
+        finish();
+        return;
+      }
+
+      // 同名字段重复
+      var seen = {};
+      words.forEach(function (w) {
+        if (w.letter === 'G' || w.letter === 'M') return;
+        if (seen[w.letter]) row.errors.push('同一行重复出现 ' + w.letter);
+        seen[w.letter] = true;
+      });
+      if (row.errors.length) {
+        row.chips = words.map(function (w) { return w.letter + ' ' + w.valueText; });
+        finish();
+        return;
+      }
+
+      var next = {
+        x: st.x, y: st.y, z: st.z,
+        motion: st.motion, plane: st.plane, units: st.units, mode: st.mode,
+        feed: st.feed, spindle: st.spindle, tool: st.tool
+      };
+
+      var gWords = words.filter(function (w) { return w.letter === 'G'; });
+      var mWords = words.filter(function (w) { return w.letter === 'M'; });
+      var gCodes = [];
+      var motionCode = null;
+      var motionSeen = 0;
+
+      gWords.forEach(function (gw) {
+        if (!Number.isInteger(gw.value) || gw.value < 0) {
+          row.errors.push('G 代码应为非负整数，「' + gw.raw + '」不合法');
+          return;
+        }
+        var code = 'G' + String(gw.value).padStart(2, '0');
+        if (inSet(G_KNOWN, code) === false) {
+          row.errors.push('未知 G 代码「' + code + '」，请检查拼写或该代码是否受支持');
+          return;
+        }
+        gCodes.push(code);
+        if (inSet(MOTION_CODES, code)) {
+          motionCode = code;
+          motionSeen++;
+          if (motionSeen > 1) row.warnings.push('同一行出现多个运动 G 代码，按最后一个「' + code + '」执行');
+        } else {
+          applyModal(code, row, next, warned);
+        }
+      });
+
+      // N / O / T
+      var nw = getWord(words, 'N');
+      if (nw) {
+        if (!Number.isInteger(nw.value)) row.warnings.push('行号 N 应为整数');
+        row.chips.push('N ' + nw.valueText);
+      }
+      var ow = getWord(words, 'O');
+      if (ow) row.chips.push('O ' + ow.valueText);
+      var tw = getWord(words, 'T');
+      if (tw) { next.tool = tw.value; row.chips.push('T ' + tw.valueText); }
+
+      // F / S
+      var fw = getWord(words, 'F');
+      if (fw) {
+        if (!(fw.value > 0)) row.errors.push('F 进给速度必须大于 0（当前 ' + fmt(fw.value) + '）');
+        else next.feed = fw.value * unitFactor(next.units);
+        row.chips.push('F ' + fmt(fw.value) + (next.units === 'G20' ? ' in/min' : ''));
+      }
+      var sw = getWord(words, 'S');
+      if (sw) {
+        if (!(sw.value > 0)) row.errors.push('S 转速必须大于 0（当前 ' + fmt(sw.value) + '）');
+        else next.spindle = sw.value;
+        row.chips.push('S ' + fmt(sw.value));
+      }
+
+      // G04 暂停参数
+      var dwell = gCodes.indexOf('G04') >= 0;
+      var hasP = hasLetter(words, 'P');
+      if (dwell) {
+        var pw = getWord(words, 'P');
+        if (!pw) row.errors.push('G04 暂停缺少 P（暂停时间，单位秒）');
+        else if (!(pw.value > 0)) row.errors.push('G04 暂停时间 P 必须大于 0（当前 ' + fmt(pw.value) + '）');
+        else row.chips.push('P ' + fmt(pw.value) + ' s');
+      } else if (hasP) {
+        row.notes.push('P 参数未配合 G04，已忽略');
+      }
+
+      // M 代码
+      var needsSpindle = false;
+      mWords.forEach(function (mw) {
+        if (!Number.isInteger(mw.value) || mw.value < 0) {
+          row.errors.push('M 代码应为非负整数，「' + mw.raw + '」不合法');
+          return;
+        }
+        var code = 'M' + String(mw.value).padStart(2, '0');
+        if (inSet(M_KNOWN, code) === false) {
+          row.errors.push('未知 M 代码「' + code + '」，请检查拼写或该代码是否受支持');
+          return;
+        }
+        row.chips.push(code + (M_LABELS[code] ? ' ' + M_LABELS[code] : ''));
+        if (code === 'M03' || code === 'M04') needsSpindle = true;
+        if (code === 'M98' || code === 'M99') {
+          if (!warned.sub) {
+            row.warnings.push('M98/M99 子程序调用在本原型中不模拟');
+            warned.sub = true;
+          }
+        }
+        if (code === 'M06' && !tw) row.notes.push('M06 换刀：本行未给出 T 刀具号');
+      });
+      if (mWords.length > 1) row.warnings.push('同一行包含多个 M 代码，已按顺序处理');
+      if (needsSpindle && next.spindle == null) row.warnings.push('主轴启动（M03/M04）未设置 S 转速');
+
+      // 轴参数展示
+      ['X','Y','Z','I','J','K','R'].forEach(function (letter) {
+        words.forEach(function (w) {
+          if (w.letter === letter) row.chips.push(letter + ' ' + w.valueText);
+        });
+      });
+
+      var suppressMotion = gCodes.indexOf('G28') >= 0 || gCodes.indexOf('G92') >= 0 || dwell;
+      var hasAxis = ['X','Y','Z','I','J','K','R'].some(function (l) { return hasLetter(words, l); });
+      var effMotion = motionCode;
+
+      if (!suppressMotion) {
+        if (!effMotion && hasAxis) {
+          if (!st.motion) row.errors.push('缺少运动指令：本行给出了坐标，但此前没有 G00/G01/G02/G03');
+          else { effMotion = st.motion; row.notes.push('沿用上一次运动指令 ' + st.motion); }
+        }
+        if ((effMotion === 'G00' || effMotion === 'G01') && !hasAxis) {
+          row.errors.push(effMotion + ' 缺少移动坐标：至少需要 X、Y 或 Z 中的一个');
+        }
+      }
+
+      if (row.errors.length) { finish(); return; }
+
+      // 声明状态提醒
+      var declaresMode = gCodes.indexOf('G90') >= 0 || gCodes.indexOf('G91') >= 0;
+      var declaresUnits = gCodes.indexOf('G20') >= 0 || gCodes.indexOf('G21') >= 0;
+      var declaresPlane = gCodes.indexOf('G17') >= 0 || gCodes.indexOf('G18') >= 0 || gCodes.indexOf('G19') >= 0;
+      if (effMotion && !declared.mode && !declaresMode && !warned.mode) {
+        row.warnings.push('未声明坐标模式 G90/G91，本行按 G90 绝对坐标解析');
+        warned.mode = true;
+      }
+      if (effMotion && !declared.units && !declaresUnits && !warned.units) {
+        row.warnings.push('未声明单位 G20/G21，本行按毫米 G21 解析');
+        warned.units = true;
+      }
+
+      var ex = st.x, ey = st.y, ez = st.z;
+      var u = unitFactor(next.units);
+      var hasX = hasLetter(words, 'X'), hasY = hasLetter(words, 'Y'), hasZ = hasLetter(words, 'Z');
+      var hasI = hasLetter(words, 'I'), hasJ = hasLetter(words, 'J'), hasK = hasLetter(words, 'K'), hasR = hasLetter(words, 'R');
+      var iw = getWord(words, 'I'), jw = getWord(words, 'J'), kw = getWord(words, 'K'), rw = getWord(words, 'R');
+
+      function targetFor(letter, current) {
+        var w = getWord(words, letter);
+        if (!w) return current;
+        var v = w.value * u;
+        return next.mode === 'G91' ? current + v : v;
+      }
+      ex = targetFor('X', st.x);
+      ey = targetFor('Y', st.y);
+      ez = targetFor('Z', st.z);
+
+      var move = null;
+
+      if (effMotion && !suppressMotion) {
+        if (effMotion === 'G00' || effMotion === 'G01') {
+          if (hasI || hasJ || hasK || hasR) {
+            row.errors.push(effMotion + ' 不接受圆弧参数（R / I / J / K），请改用 G02 或 G03');
+          } else {
+            var pts = [
+              { x: st.x, y: st.y, z: st.z },
+              { x: ex, y: ey, z: ez }
+            ];
+            var len = Math.sqrt((ex - st.x) * (ex - st.x) + (ey - st.y) * (ey - st.y) + (ez - st.z) * (ez - st.z));
+            move = {
+              line: idx + 1, code: effMotion, rapid: effMotion === 'G00',
+              start: { x: st.x, y: st.y, z: st.z }, end: { x: ex, y: ey, z: ez },
+              points: pts, length: len, feed: next.feed
+            };
+          }
+        } else {
+          var dir = effMotion === 'G02' ? -1 : 1;
+          var arc = null;
+
+          if (hasR && (hasI || hasJ)) {
+            row.errors.push('圆弧同时给出了 R 和 I/J：R 与 I/J 不能混用，请只保留一种');
+          } else if (hasR) {
+            if (rw.value === 0) {
+              row.errors.push('圆弧半径 R 不能为 0');
+            } else if (!hasX && !hasY) {
+              row.errors.push('用 R 编程圆弧时，必须给出终点 X 或 Y');
+            } else {
+              var rv = rw.value * u;
+              var rr = Math.abs(rv);
+              var dx = ex - st.x, dy = ey - st.y;
+              var d = Math.sqrt(dx * dx + dy * dy);
+              if (d <= 1e-9) {
+                row.errors.push('圆弧起点与终点相同：R 方式无法定义整圆');
+              } else if (rr < d / 2 - 1e-7) {
+                row.errors.push('R 的绝对值（' + fmt(rr) + ' mm）小于起终点距离的一半（' + fmt(d / 2) + ' mm），圆弧几何不成立');
+              } else {
+                var mx = (st.x + ex) / 2, my = (st.y + ey) / 2;
+                var nx = -dy / d, ny = dx / d;
+                var h = Math.sqrt(Math.max(0, rr * rr - (d * d) / 4));
+                var candidates = [
+                  { x: mx + nx * h, y: my + ny * h },
+                  { x: mx - nx * h, y: my - ny * h }
+                ];
+                var selected = null;
+                for (var ci = 0; ci < 2; ci++) {
+                  var cc = candidates[ci];
+                  var swc = arcSweep(cc.x, cc.y, st.x, st.y, ex, ey, dir);
+                  var isMajor = swc.sweep > Math.PI + 1e-6;
+                  if ((rv > 0 && !isMajor) || (rv < 0 && isMajor)) {
+                    selected = { cx: cc.x, cy: cc.y, a0: swc.a0, sweep: swc.sweep };
+                    break;
+                  }
+                }
+                if (!selected) {
+                  var cc0 = candidates[0];
+                  var sw0 = arcSweep(cc0.x, cc0.y, st.x, st.y, ex, ey, dir);
+                  selected = { cx: cc0.x, cy: cc0.y, a0: sw0.a0, sweep: sw0.sweep };
+                }
+                arc = { cx: selected.cx, cy: selected.cy, radius: rr, a0: selected.a0, sweep: selected.sweep };
+                if (rv < 0) row.notes.push('R 为负值：按优弧（大于 180°）解析');
+              }
+            }
+          } else if (hasI || hasJ) {
+            if (next.plane !== 'G17') {
+              row.warnings.push('当前为 ' + next.plane + ' 平面，本原型只按 XY 平面预览，圆弧可能显示不准确');
+            }
+            if (hasK) row.warnings.push('G17 平面不使用 K 参数，K 已忽略');
+            var iMm = (iw ? iw.value : 0) * u;
+            var jMm = (jw ? jw.value : 0) * u;
+            var cx = st.x + iMm, cy = st.y + jMm;
+            var radius = Math.sqrt((st.x - cx) * (st.x - cx) + (st.y - cy) * (st.y - cy));
+            if (radius <= 1e-6) {
+              row.errors.push('I/J 定义的圆心与起点重合，圆弧半径为 0');
+            } else {
+              var sw = arcSweep(cx, cy, st.x, st.y, ex, ey, dir);
+              var endR = Math.sqrt((ex - cx) * (ex - cx) + (ey - cy) * (ey - cy));
+              var tol = Math.max(0.1, radius * 0.005);
+              if (Math.abs(endR - radius) > tol) {
+                row.warnings.push('圆弧终点不在圆上：起点半径 ' + fmt(radius) + ' mm，终点半径 ' + fmt(endR) + ' mm');
+              }
+              arc = { cx: cx, cy: cy, radius: radius, a0: sw.a0, sweep: sw.sweep };
+            }
+          } else {
+            row.errors.push('圆弧缺少定义：请给出 R，或给出 I/J（圆心相对起点的偏移）');
+          }
+
+          if (row.errors.length === 0 && arc) {
+            var arcLen = arc.radius * arc.sweep;
+            var arcPts = sampleArc(arc.cx, arc.cy, arc.radius, arc.a0, arc.sweep, dir, st.x, st.y, ex, ey, st.z, ez);
+            move = {
+              line: idx + 1, code: effMotion, rapid: false,
+              start: { x: st.x, y: st.y, z: st.z }, end: { x: ex, y: ey, z: ez },
+              points: arcPts, length: Math.sqrt(arcLen * arcLen + (ez - st.z) * (ez - st.z)),
+              feed: next.feed, arcLen: arcLen
+            };
+            row.notes.push('圆心 (' + fmt(arc.cx) + ', ' + fmt(arc.cy) + ')，半径 ' + fmt(arc.radius) +
+              ' mm，扫过 ' + fmtDeg(arc.sweep) + '°');
+          }
+        }
+      }
+
+      if (row.errors.length) { finish(); return; }
+
+      // 进给缺省提示 & 时间估算
+      if (move && !move.rapid && next.feed == null) {
+        if (!warned.feed) {
+          row.warnings.push('切削移动未设置进给速度 F，时间估算按 F100 mm/min 处理');
+          warned.feed = true;
+        }
+        move.feed = 100;
+      }
+
+      // 提交状态
+      if (move) {
+        moves.push(move);
+        st.x = ex; st.y = ey; st.z = ez;
+      }
+      st.mode = next.mode;
+      st.units = next.units;
+      st.plane = next.plane;
+      st.feed = next.feed;
+      st.spindle = next.spindle;
+      st.tool = next.tool;
+      if (motionCode) st.motion = motionCode;
+      if (declaresMode) declared.mode = true;
+      if (declaresUnits) declared.units = true;
+      if (declaresPlane) declared.plane = true;
+
+      finish();
+    });
+
+    // ---- 汇总统计 ----
+    var bounds = null;
+    var zMin = Infinity, zMax = -Infinity;
+    var cutLength = 0, rapidLength = 0, cutTime = 0, cutCount = 0, rapidCount = 0;
+
+    moves.forEach(function (m) {
+      if (m.rapid) { rapidCount++; rapidLength += m.length; }
+      else {
+        cutCount++; cutLength += m.length;
+        cutTime += m.length / (m.feed > 0 ? m.feed : 100);
+      }
+      m.points.forEach(function (p) {
+        if (!bounds) bounds = { minX: p.x, maxX: p.x, minY: p.y, maxY: p.y };
+        else {
+          if (p.x < bounds.minX) bounds.minX = p.x;
+          if (p.x > bounds.maxX) bounds.maxX = p.x;
+          if (p.y < bounds.minY) bounds.minY = p.y;
+          if (p.y > bounds.maxY) bounds.maxY = p.y;
+        }
+        if (p.z < zMin) zMin = p.z;
+        if (p.z > zMax) zMax = p.z;
+      });
+    });
+
+    if (bounds) { bounds.zMin = zMin; bounds.zMax = zMax; }
+
+    var errorRows = 0, warningRows = 0, warningTotal = 0;
+    rows.forEach(function (r) {
+      if (r.errors.length) errorRows++;
+      else if (r.warnings.length) warningRows++;
+      warningTotal += r.warnings.length;
+    });
+
+    return {
+      rows: rows,
+      moves: moves,
+      bounds: bounds,
+      stats: {
+        totalLines: rows.length,
+        errorRows: errorRows,
+        warningRows: warningRows,
+        warningTotal: warningTotal,
+        motionCount: moves.length,
+        cutCount: cutCount,
+        rapidCount: rapidCount,
+        cutLength: cutLength,
+        rapidLength: rapidLength,
+        cutTime: cutTime,
+        faultFree: errorRows === 0
+      }
+    };
+  }
+
+  window.GCodeCore = {
+    parseProgram: parseProgram,
+    SAMPLE_PROGRAM: SAMPLE_PROGRAM,
+    BAD_SAMPLE: BAD_SAMPLE,
+    G_LABELS: G_LABELS,
+    M_LABELS: M_LABELS
+  };
+})();
+</script>
+
+<script>
+/* ============================================================
+   界面层：列表渲染 / Canvas 绘制 / 缩放平移
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var core = window.GCodeCore;
+  var editor = document.getElementById('editor');
+  var lineList = document.getElementById('lineList');
+  var statusPill = document.getElementById('statusPill');
+  var summaryText = document.getElementById('summaryText');
+  var listHint = document.getElementById('listHint');
+  var statsBar = document.getElementById('statsBar');
+  var emptyHint = document.getElementById('emptyHint');
+  var readout = document.getElementById('readout');
+  var zLegendText = document.getElementById('zLegendText');
+  var canvas = document.getElementById('canvas');
+  var wrap = document.getElementById('canvasWrap');
+  var ctx = canvas.getContext('2d');
+
+  var current = { rows: [], moves: [], bounds: null, stats: { totalLines: 0, errorRows: 0, warningRows: 0, warningTotal: 0, motionCount: 0, cutCount: 0, rapidCount: 0, cutLength: 0, rapidLength: 0, cutTime: 0 } };
+  var view = { scale: 0, ox: 0, oy: 0 };
+  var cw = 0, ch = 0, dpr = 1;
+  var parseTimer = null;
+  var pointers = new Map();
+  var dragStart = null;
+  var pinchStart = null;
+  var TAU = Math.PI * 2;
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ---------- 列表 ----------
+  function renderRows() {
+    if (!current.rows.length) {
+      lineList.innerHTML = '<div class="empty-list">粘贴 G 代码后点击「解析并预览」</div>';
+      return;
+    }
+    var html = '';
+    var limit = Math.min(current.rows.length, 800);
+    for (var i = 0; i < limit; i++) {
+      var row = current.rows[i];
+      var rawText = row.raw.trim();
+      var display = rawText || '（空行）';
+      var badge = '';
+      if (row.errors.length) badge = '<span class="badge error">错误</span>';
+      else if (row.warnings.length) badge = '<span class="badge warn">警告</span>';
+
+      var chips = '';
+      if (row.status === 'comment' && !row.chips.length) {
+        chips = '<span class="chip">注释</span>';
+      } else {
+        row.chips.forEach(function (c) {
+          var cls = /^G0[0-3]/.test(c) ? 'chip cmd' : 'chip';
+          chips += '<span class="' + cls + '">' + esc(c) + '</span>';
+        });
+      }
+
+      var msgs = '';
+      row.errors.forEach(function (m) {
+        msgs += '<div class="msg err"><span class="msg-tag">错误</span><span>' + esc(m) + '</span></div>';
+      });
+      row.warnings.forEach(function (m) {
+        msgs += '<div class="msg warn"><span class="msg-tag">警告</span><span>' + esc(m) + '</span></div>';
+      });
+      row.notes.forEach(function (m) {
+        msgs += '<div class="msg note"><span class="msg-tag">说明</span><span>' + esc(m) + '</span></div>';
+      });
+
+      html += '<div class="line-row ' + row.status + '">' +
+        '<div class="ln">' + row.n + '</div>' +
+        '<div class="row-main">' +
+          '<div class="row-top"><code class="code-line">' + esc(display) + '</code>' + badge + '</div>' +
+          (chips ? '<div class="chips">' + chips + '</div>' : '') +
+          msgs +
+        '</div>' +
+      '</div>';
+    }
+    if (current.rows.length > limit) {
+      html += '<div class="empty-list">共 ' + current.rows.length + ' 行，仅显示前 ' + limit + ' 行（轨迹仍按全部有效行计算）</div>';
+    }
+    lineList.innerHTML = html;
+  }
+
+  function formatDuration(min) {
+    if (!isFinite(min) || min <= 0) return '0 秒';
+    if (min < 1) return Math.round(min * 60) + ' 秒';
+    return min.toFixed(1) + ' 分钟';
+  }
+
+  function updateStatus() {
+    var s = current.stats;
+    var cls = 'ok';
+    var text = '解析通过 · ' + s.motionCount + ' 段轨迹';
+    if (s.errorRows > 0) { cls = 'err'; text = s.errorRows + ' 行错误 · 有轨迹已跳过'; }
+    else if (s.warningRows > 0) { cls = 'warn'; text = '解析完成 · ' + s.warningRows + ' 行有警告'; }
+    else if (s.motionCount === 0) { cls = 'warn'; text = '未解析出运动轨迹'; }
+    statusPill.className = 'pill ' + cls;
+    statusPill.textContent = text;
+
+    summaryText.textContent = '共 ' + s.totalLines + ' 行 · 轨迹 ' + s.motionCount +
+      ' 段 · 错误 ' + s.errorRows + ' 行 · 警告 ' + s.warningRows + ' 行';
+    listHint.textContent = s.totalLines ? s.totalLines + ' 行（按物理行计）' : '暂无内容';
+
+    var parts = [];
+    if (s.motionCount) {
+      parts.push('轨迹段 ' + s.motionCount + '（切削 ' + s.cutCount + ' / 快移 ' + s.rapidCount + '）');
+      if (current.bounds) {
+        parts.push('X ' + fmtN(current.bounds.minX) + ' → ' + fmtN(current.bounds.maxX) + ' mm');
+        parts.push('Y ' + fmtN(current.bounds.minY) + ' → ' + fmtN(current.bounds.maxY) + ' mm');
+        parts.push('Z ' + fmtN(current.bounds.zMin) + ' → ' + fmtN(current.bounds.zMax) + ' mm');
+        zLegendText.textContent = 'Z ' + fmtN(current.bounds.zMin) + ' → ' + fmtN(current.bounds.zMax) + ' mm';
+      }
+      parts.push('切削长度 ' + fmtN(s.cutLength) + ' mm');
+      parts.push('快移长度 ' + fmtN(s.rapidLength) + ' mm');
+      parts.push('估算切削 ' + formatDuration(s.cutTime));
+    } else {
+      parts.push('没有可绘制的轨迹');
+      zLegendText.textContent = 'Z —';
+    }
+    if (s.errorRows) parts.unshift('<span class="bad">' + s.errorRows + ' 行错误未参与轨迹</span>');
+    statsBar.innerHTML = parts.map(function (p) { return '<span>' + p + '</span>'; }).join('');
+  }
+
+  function fmtN(v) {
+    var r = Math.round(v * 100) / 100;
+    if (Object.is(r, -0)) r = 0;
+    return String(r);
+  }
+
+  // ---------- 画布尺寸 ----------
+  function resizeCanvas() {
+    var rect = wrap.getBoundingClientRect();
+    cw = Math.max(1, Math.floor(rect.width));
+    ch = Math.max(1, Math.floor(rect.height));
+    dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    var bw = Math.floor(cw * dpr);
+    var bh = Math.floor(ch * dpr);
+    if (canvas.width !== bw) canvas.width = bw;
+    if (canvas.height !== bh) canvas.height = bh;
+    canvas.style.width = cw + 'px';
+    canvas.style.height = ch + 'px';
+  }
+
+  function fitView() {
+    if (!current.moves.length || !current.bounds) { view.scale = 0; return; }
+    var b = current.bounds;
+    var pad = 56;
+    var bw = Math.max(b.maxX - b.minX, 10);
+    var bh = Math.max(b.maxY - b.minY, 10);
+    var scale = Math.min((cw - pad * 2) / bw, (ch - pad * 2) / bh);
+    view.scale = Math.max(0.02, Math.min(300, scale));
+    var cx = (b.minX + b.maxX) / 2;
+    var cy = (b.minY + b.maxY) / 2;
+    view.ox = cw / 2 - cx * view.scale;
+    view.oy = ch / 2 + cy * view.scale;
+  }
+
+  function sxOf(x) { return view.ox + x * view.scale; }
+  function syOf(y) { return view.oy - y * view.scale; }
+  function screenToWorld(px, py) {
+    return { x: (px - view.ox) / view.scale, y: (view.oy - py) / view.scale };
+  }
+
+  function niceStep(targetPx) {
+    if (!(view.scale > 0)) return 1;
+    var raw = targetPx / view.scale;
+    var exp = Math.floor(Math.log10(raw));
+    var f = raw / Math.pow(10, exp);
+    var m = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+    return m * Math.pow(10, exp);
+  }
+
+  function fmtTick(v, step) {
+    var dec = Math.max(0, Math.min(4, Math.ceil(-Math.log10(step))));
+    var s = v.toFixed(dec);
+    if (s === '-0' || s === '-0.0' || s === '-0.00') s = '0';
+    return s;
+  }
+
+  function zColor(z) {
+    var b = current.bounds;
+    var t = 0.5;
+    if (b && b.zMax - b.zMin > 1e-9) t = (z - b.zMin) / (b.zMax - b.zMin);
+    t = Math.max(0, Math.min(1, t));
+    var hue = 210 - 175 * t;
+    return 'hsl(' + hue.toFixed(1) + ', 72%, 44%)';
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawGrid() {
+    var step = niceStep(84);
+    var wx0 = (0 - view.ox) / view.scale;
+    var wx1 = (cw - view.ox) / view.scale;
+    var wy0 = (view.oy - ch) / view.scale;
+    var wy1 = view.oy / view.scale;
+
+    ctx.strokeStyle = '#eef1f5';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    var x, y, px, py;
+    for (x = Math.ceil(wx0 / step) * step; x <= wx1 + step * 0.01; x += step) {
+      px = Math.round(sxOf(x)) + 0.5;
+      if (px < -1 || px > cw + 1) continue;
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, ch);
+    }
+    for (y = Math.ceil(wy0 / step) * step; y <= wy1 + step * 0.01; y += step) {
+      py = Math.round(syOf(y)) + 0.5;
+      if (py < -1 || py > ch + 1) continue;
+      ctx.moveTo(0, py);
+      ctx.lineTo(cw, py);
+    }
+    ctx.stroke();
+
+    // 坐标轴
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    var ax = sxOf(0), ay = syOf(0);
+    if (ax >= 0 && ax <= cw) { ctx.moveTo(ax, 0); ctx.lineTo(ax, ch); }
+    if (ay >= 0 && ay <= ch) { ctx.moveTo(0, ay); ctx.lineTo(cw, ay); }
+    ctx.stroke();
+
+    // 刻度文字
+    ctx.font = '10px ' + '"Cascadia Code", Consolas, monospace';
+    ctx.fillStyle = '#98a2b3';
+    if (ay >= 0 && ay <= ch) {
+      ctx.textAlign = 'center';
+      var above = ay > ch - 40;
+      ctx.textBaseline = above ? 'bottom' : 'top';
+      for (x = Math.ceil(wx0 / step) * step; x <= wx1; x += step) {
+        px = sxOf(x);
+        if (px < 14 || px > cw - 14) continue;
+        ctx.fillText(fmtTick(x, step), px, above ? ay - 9 : ay + 8);
+      }
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 11px ' + '"Cascadia Code", Consolas, monospace';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      if (cw > 30) ctx.fillText('X', cw - 8, ay - 8);
+    }
+    if (ax >= 0 && ax <= cw) {
+      ctx.font = '10px ' + '"Cascadia Code", Consolas, monospace';
+      ctx.fillStyle = '#98a2b3';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      var rightSide = ax < 34;
+      for (y = Math.ceil(wy0 / step) * step; y <= wy1; y += step) {
+        py = syOf(y);
+        if (py < 12 || py > ch - 24) continue;
+        ctx.fillText(fmtTick(y, step), rightSide ? ax + 32 : ax - 7, py);
+      }
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 11px ' + '"Cascadia Code", Consolas, monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      if (ch > 30) ctx.fillText('Y', ax + 7, 8);
+    }
+  }
+
+  function strokePolyline(points) {
+    if (points.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(sxOf(points[0].x), syOf(points[0].y));
+    for (var i = 1; i < points.length; i++) ctx.lineTo(sxOf(points[i].x), syOf(points[i].y));
+    ctx.stroke();
+  }
+
+  function drawPath() {
+    if (!current.moves.length) return;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    current.moves.forEach(function (m) {
+      var sameXY = Math.abs(m.end.x - m.start.x) < 1e-7 && Math.abs(m.end.y - m.start.y) < 1e-7;
+
+      if (sameXY) {
+        var dx = sxOf(m.start.x), dy = syOf(m.start.y);
+        ctx.beginPath();
+        ctx.arc(dx, dy, 4, 0, TAU);
+        ctx.fillStyle = 'rgba(255,255,255,.85)';
+        ctx.fill();
+        ctx.strokeStyle = zColor(m.end.z);
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        return;
+      }
+
+      if (m.rapid) {
+        ctx.save();
+        ctx.globalAlpha = 0.62;
+        ctx.setLineDash([6, 5]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = zColor((m.start.z + m.end.z) / 2);
+        strokePolyline(m.points);
+        ctx.restore();
+        return;
+      }
+
+      ctx.setLineDash([]);
+      var dz = Math.abs(m.end.z - m.start.z);
+      if (dz < 0.01 || m.points.length > 2) {
+        if (m.points.length > 2 && dz > 0.01) {
+          for (var i = 0; i < m.points.length - 1; i++) {
+            var p = m.points[i], q = m.points[i + 1];
+            ctx.strokeStyle = zColor((p.z + q.z) / 2);
+            ctx.lineWidth = 2.1;
+            ctx.beginPath();
+            ctx.moveTo(sxOf(p.x), syOf(p.y));
+            ctx.lineTo(sxOf(q.x), syOf(q.y));
+            ctx.stroke();
+          }
+        } else {
+          ctx.strokeStyle = zColor((m.start.z + m.end.z) / 2);
+          ctx.lineWidth = 2.1;
+          strokePolyline(m.points);
+        }
+      } else {
+        var segs = Math.max(2, Math.min(40, Math.ceil(dz / 0.3)));
+        for (var k = 0; k < segs; k++) {
+          var t0 = k / segs, t1 = (k + 1) / segs;
+          var z0 = m.start.z + (m.end.z - m.start.z) * t0;
+          var z1 = m.start.z + (m.end.z - m.start.z) * t1;
+          var ax = sxOf(m.start.x + (m.end.x - m.start.x) * t0);
+          var ay2 = syOf(m.start.y + (m.end.y - m.start.y) * t0);
+          var bx = sxOf(m.start.x + (m.end.x - m.start.x) * t1);
+          var by = syOf(m.start.y + (m.end.y - m.start.y) * t1);
+          ctx.strokeStyle = zColor((z0 + z1) / 2);
+          ctx.lineWidth = 2.1;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay2);
+          ctx.lineTo(bx, by);
+          ctx.stroke();
+        }
+      }
+    });
+  }
+
+  function drawMarkers() {
+    if (!current.moves.length) return;
+    var first = current.moves[0].start;
+    var last = current.moves[current.moves.length - 1].end;
+    var ax = sxOf(first.x), ay = syOf(first.y);
+    var bx = sxOf(last.x), by = syOf(last.y);
+
+    ctx.font = '10px "Microsoft YaHei", sans-serif';
+    ctx.textBaseline = 'alphabetic';
+
+    ctx.beginPath();
+    ctx.arc(ax, ay, 4.2, 0, TAU);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = '#16a34a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#15803d';
+    ctx.textAlign = 'left';
+    ctx.fillText('起点', ax + 8, ay - 8);
+
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(bx - 3.6, by - 3.6, 7.2, 7.2);
+    ctx.fillStyle = '#334155';
+    ctx.textAlign = 'left';
+    ctx.fillText('终点', bx + 8, by + 15);
+  }
+
+  function drawScaleBar() {
+    if (!(view.scale > 0)) return;
+    var L = niceStep(110);
+    var barPx = L * view.scale;
+    if (barPx > cw - 30) return;
+    var x0 = 16, y = ch - 26, x1 = x0 + barPx;
+    ctx.fillStyle = 'rgba(255,255,255,.94)';
+    ctx.strokeStyle = '#e4e7ec';
+    ctx.lineWidth = 1;
+    roundRect(x0 - 9, y - 22, barPx + 18, 30, 6);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = '#475467';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x0, y); ctx.lineTo(x1, y);
+    ctx.moveTo(x0, y - 4); ctx.lineTo(x0, y + 4);
+    ctx.moveTo(x1, y - 4); ctx.lineTo(x1, y + 4);
+    ctx.stroke();
+
+    ctx.fillStyle = '#475467';
+    ctx.font = '10px "Cascadia Code", Consolas, monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(fmtTick(L, L) + ' mm', x0, y - 7);
+  }
+
+  function drawScene() {
+    if (!ctx) return;
+    resizeCanvas();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cw, ch);
+
+    if (!current.moves.length) {
+      emptyHint.style.display = 'flex';
+      readout.textContent = 'X —   Y —';
+      return;
+    }
+    emptyHint.style.display = 'none';
+    if (!(view.scale > 0)) fitView();
+    if (!(view.scale > 0)) return;
+
+    drawGrid();
+    drawPath();
+    drawMarkers();
+    drawScaleBar();
+  }
+
+  // ---------- 交互 ----------
+  function zoomAt(px, py, factor) {
+    if (!(view.scale > 0)) return;
+    var w = screenToWorld(px, py);
+    var ns = Math.max(0.02, Math.min(300, view.scale * factor));
+    view.scale = ns;
+    view.ox = px - w.x * ns;
+    view.oy = py + w.y * ns;
+  }
+
+  function localPos(e) {
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+  canvas.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var p = localPos(e);
+    zoomAt(p.x, p.y, e.deltaY < 0 ? 1.16 : 1 / 1.16);
+    drawScene();
+  }, { passive: false });
+
+  canvas.addEventListener('pointerdown', function (e) {
+    canvas.setPointerCapture(e.pointerId);
+    var p = localPos(e);
+    pointers.set(e.pointerId, p);
+    if (pointers.size === 1) {
+      dragStart = { x: p.x, y: p.y, ox: view.ox, oy: view.oy };
+      pinchStart = null;
+    } else if (pointers.size === 2) {
+      dragStart = null;
+      var pts = Array.from(pointers.values());
+      var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      var mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      pinchStart = { dist: dist, scale: view.scale, world: screenToWorld(mid.x, mid.y) };
+    }
+    canvas.classList.add('grabbing');
+  });
+
+  canvas.addEventListener('pointermove', function (e) {
+    var p = localPos(e);
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, p);
+    if (view.scale > 0) {
+      var w = screenToWorld(p.x, p.y);
+      readout.textContent = 'X ' + w.x.toFixed(2) + '   Y ' + w.y.toFixed(2) + ' mm';
+    }
+
+    if (pinchStart && pointers.size >= 2) {
+      var pts = Array.from(pointers.values());
+      var dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      var mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      var ns = Math.max(0.02, Math.min(300, pinchStart.scale * (dist / Math.max(1, pinchStart.dist))));
+      view.scale = ns;
+      view.ox = mid.x - pinchStart.world.x * ns;
+      view.oy = mid.y + pinchStart.world.y * ns;
+      drawScene();
+      return;
+    }
+    if (dragStart && pointers.size === 1) {
+      view.ox = dragStart.ox + (p.x - dragStart.x);
+      view.oy = dragStart.oy + (p.y - dragStart.y);
+      drawScene();
+    }
+  });
+
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchStart = null;
+    if (pointers.size === 1) {
+      var p = Array.from(pointers.values())[0];
+      dragStart = { x: p.x, y: p.y, ox: view.ox, oy: view.oy };
+    } else if (pointers.size === 0) {
+      dragStart = null;
+      canvas.classList.remove('grabbing');
+    }
+  }
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+
+  // ---------- 解析入口 ----------
+  function runParse(fit) {
+    current = core.parseProgram(editor.value);
+    renderRows();
+    updateStatus();
+    resizeCanvas();
+    if (fit || !(view.scale > 0)) fitView();
+    drawScene();
+  }
+
+  var initialFit = true;
+  editor.addEventListener('input', function () {
+    clearTimeout(parseTimer);
+    parseTimer = setTimeout(function () { runParse(false); }, 300);
+  });
+
+  document.getElementById('btnParse').addEventListener('click', function () { runParse(true); });
+  document.getElementById('btnSample').addEventListener('click', function () {
+    editor.value = core.SAMPLE_PROGRAM;
+    runParse(true);
+  });
+  document.getElementById('btnBad').addEventListener('click', function () {
+    editor.value = core.BAD_SAMPLE;
+    runParse(true);
+  });
+  document.getElementById('btnClear').addEventListener('click', function () {
+    editor.value = '';
+    runParse(true);
+  });
+  document.getElementById('btnFit').addEventListener('click', function () {
+    resizeCanvas();
+    fitView();
+    drawScene();
+  });
+  document.getElementById('btnZoomIn').addEventListener('click', function () {
+    zoomAt(cw / 2, ch / 2, 1.3);
+    drawScene();
+  });
+  document.getElementById('btnZoomOut').addEventListener('click', function () {
+    zoomAt(cw / 2, ch / 2, 1 / 1.3);
+    drawScene();
+  });
+
+  var resizeObserver = new ResizeObserver(function () {
+    var oldW = cw, oldH = ch;
+    var center = (view.scale > 0 && oldW > 0) ? screenToWorld(oldW / 2, oldH / 2) : null;
+    resizeCanvas();
+    if (center && view.scale > 0) {
+      view.ox = cw / 2 - center.x * view.scale;
+      view.oy = ch / 2 + center.y * view.scale;
+    } else if (!(view.scale > 0) && current.moves.length) {
+      fitView();
+    }
+    drawScene();
+  });
+  resizeObserver.observe(wrap);
+
+  editor.value = core.SAMPLE_PROGRAM;
+  requestAnimationFrame(function () {
+    resizeCanvas();
+    runParse(true);
+  });
+})();
+</script>
+</body>
+</html>
