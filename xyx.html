@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#16724f">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>天海铣油线计算器</title>
+<style>
+  :root{
+    --bg:#eceff2; --card:#ffffff; --ink:#152028; --muted:#6b7d8b;
+    --line:#dce4ea; --green:#1e7a52; --green-2:#2e9a6a; --green-soft:#eaf5ef;
+    --amber:#c47a1c; --amber-soft:#fdf4e6; --red:#bf3b2e; --red-soft:#fceeec;
+    --shadow:0 1px 2px rgba(21,32,40,.06),0 8px 24px -12px rgba(21,32,40,.18);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1200px 520px at 15% -10%, rgba(58,116,178,.45) 0%, transparent 62%),
+      linear-gradient(180deg,#14263c 0%, #0b1728 100%);
+    color:var(--ink);
+    font-family:"Microsoft YaHei","PingFang SC","HarmonyOS Sans SC","Segoe UI",system-ui,sans-serif;
+    font-size:14px; line-height:1.5; min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+    -webkit-text-size-adjust:100%;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .wrap{max-width:1360px;margin:0 auto;padding:18px 20px 40px}
+
+  /* ---------- 顶栏 ---------- */
+  .topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:4px 2px 16px}
+  .logo{width:38px;height:38px;border-radius:9px;background:linear-gradient(160deg,#2e9a6a,#166246);
+    display:grid;place-items:center;box-shadow:0 4px 12px -4px rgba(30,122,82,.6);flex:0 0 auto}
+  .logo svg{display:block}
+  .titles h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.3px;color:#eaf2fb}
+  .titles p{margin:2px 0 0;font-size:12px;color:#9db4cc;letter-spacing:.4px}
+  .topbar .spacer{flex:1}
+  .tag{font-size:11.5px;color:#3c5a4c;background:var(--green-soft);border:1px solid #cfe7db;
+    padding:5px 10px;border-radius:99px;letter-spacing:.3px}
+
+  /* ---------- 布局 ---------- */
+  .stack{display:flex;flex-direction:column;gap:18px;max-width:1180px;margin:0 auto}
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;
+    grid-template-areas:"groove head" "tool tool"}
+  .p-groove{grid-area:groove}
+  .p-tool{grid-area:tool}
+  .p-head{grid-area:head}
+  @media(max-width:860px){
+    .panels{display:flex;flex-direction:column;gap:14px}
+  }
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+  .card-h{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .card-h .dot{width:7px;height:7px;border-radius:2px;background:var(--green);transform:rotate(45deg)}
+  .card-h h2{font-size:13.5px;margin:0;font-weight:700;letter-spacing:.4px}
+  .card-h .hint{margin-left:auto;font-size:11.5px;color:var(--muted)}
+  .card-b{padding:14px 16px}
+
+  /* ---------- 图形 ---------- */
+  figure.viz{margin:0;overflow:hidden}
+  figure.viz figcaption{display:flex;align-items:baseline;gap:8px;padding:11px 15px 9px;border-bottom:1px solid var(--line)}
+  figure.viz figcaption b{font-size:13px;font-weight:700;letter-spacing:.3px}
+  figure.viz figcaption span{font-size:11.3px;color:var(--muted);margin-left:auto;text-align:right}
+  .canvas{padding:6px 8px 10px;background:linear-gradient(180deg,#fcfdfd,#f7f9fa)}
+  .canvas svg{display:block;width:100%;height:auto}
+
+  /* SVG 通用 */
+  .mach{fill:#dde6ec;stroke:#b6c4cf;stroke-width:1.2}
+  .machDark{fill:#c3d0da;stroke:#a9b9c5;stroke-width:1.2}
+  .headBody{fill:#2e8b62;stroke:#1c6647;stroke-width:1.4}
+  .headTop{fill:#3aa073;stroke:#1c6647;stroke-width:1.4}
+  .spindle{fill:#9fb2bf;stroke:#7d93a2;stroke-width:1.1}
+  .holder{fill:#7d93a2;stroke:#5f7787;stroke-width:1.1}
+  .toolBody{fill:#d9c08a;stroke:#a88c50;stroke-width:1.2}
+  .toolFlute{stroke:#b39a63;stroke-width:1.1}
+  .refLine{stroke:#8ea1ae;stroke-width:1.2;stroke-dasharray:7 6}
+  .arcAngle{fill:none;stroke:#0f5238;stroke-width:2}
+  .dimLine{stroke:#c47a1c;stroke-width:1.15;fill:none}
+  .extLine{stroke:#b9c6d1;stroke-width:1;stroke-dasharray:3 3}
+  .dimText{fill:#a8640f;font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;
+    paint-order:stroke;stroke:#fff;stroke-width:3.4px;stroke-linejoin:round}
+  .lbl{fill:#5c6f7d;font-size:11.5px}
+  .lblB{fill:#1c2a35;font-size:12px;font-weight:700}
+  .cap{fill:#8b9aa6;font-size:10.5px;letter-spacing:.6px}
+  .strokeGreen{fill:none;stroke:#1e7a52;stroke-width:2.4}
+  .strokeAmber{fill:none;stroke:#c47a1c;stroke-width:1.8;stroke-dasharray:6 5}
+  .voidRed{fill:#fbe6e3}
+  .voidWhite{fill:#ffffff}
+  .centerDot{fill:#c47a1c}
+  .warnBig{fill:#bf3b2e;font-size:13px;font-weight:700}
+  .tbRect{fill:#f3f7fa;stroke:#cbd8e2;stroke-width:1}
+  .tbText{fill:#4a5f6d;font-size:11.5px}
+
+  /* ---------- 计算说明 ---------- */
+  details.formula{margin-top:18px}
+  details.formula summary{cursor:pointer;list-style:none;padding:13px 16px;font-size:13px;font-weight:700;
+    display:flex;align-items:center;gap:8px;letter-spacing:.4px}
+  details.formula summary::-webkit-details-marker{display:none}
+  details.formula summary .arr{margin-left:auto;color:var(--muted);transition:.2s;font-size:12px}
+  details.formula[open] summary .arr{transform:rotate(90deg)}
+  .formula-body{padding:0 16px 16px;display:grid;grid-template-columns:1.1fr 1fr;gap:18px}
+  @media(max-width:760px){.formula-body{grid-template-columns:1fr}}
+  .fml{background:#f7faf9;border:1px solid #dbe8e2;border-radius:9px;padding:12px 14px}
+  .fml div{font-family:"Cambria Math",Georgia,serif;font-size:14.5px;padding:5px 0;color:#173a2b}
+  .fml div span{font-family:inherit;font-size:12px;color:#6b8478;margin-left:8px}
+  .notes{font-size:12.3px;color:#4a5f6d;line-height:1.75}
+  .notes b{color:#173a2b}
+  .foot{margin-top:22px;font-size:11.5px;color:#8fa6bf;text-align:center;letter-spacing:.3px}
+
+  /* ---------- 图上内嵌参数（HUD） ---------- */
+  .canvas{position:relative}
+  .canvas > svg{display:block;width:100%;height:auto}
+  .ov{
+    position:absolute;display:flex;align-items:center;gap:2px;z-index:2;
+    height:36px;padding:0 5px 0 2px;border-radius:10px;
+    background:rgba(255,255,255,.96);border:1px solid #c9d8e2;
+    box-shadow:0 3px 10px -4px rgba(21,32,40,.35),0 1px 2px rgba(21,32,40,.08);
+    transition:box-shadow .15s,border-color .15s;
+  }
+  .ov:focus-within{border-color:#2e9a6a;box-shadow:0 0 0 3px rgba(46,154,106,.16)}
+  .ov-k{
+    flex:0 0 auto;min-width:20px;display:grid;place-items:center;padding:0 4px;
+    font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:14px;color:#1e7a52;
+  }
+  .ov input{
+    width:54px;height:28px;border:0;background:transparent;text-align:center;
+    font:inherit;font-size:15px;font-weight:700;color:var(--ink);
+    font-variant-numeric:tabular-nums;outline:none;-moz-appearance:textfield;
+  }
+  .ov input::-webkit-outer-spin-button,.ov input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .ov-u{flex:0 0 auto;font-size:10.5px;color:#7b8b97;padding-right:2px}
+  .ov-step{
+    flex:0 0 auto;width:28px;height:28px;padding:0;border-radius:8px;
+    border:1px solid #dbe4ea;background:#f4f8fa;color:#2f4350;
+    font-family:inherit;font-size:15px;font-weight:700;line-height:1;
+    display:grid;place-items:center;cursor:pointer;
+    -webkit-user-select:none;user-select:none;touch-action:manipulation;
+  }
+  .ov-step:active{background:#e2ecf2}
+  /* 角度徽标 */
+  .ov-angle{
+    flex-direction:column;align-items:flex-start;gap:2px;height:auto;
+    padding:9px 15px 10px;border-radius:12px;
+    background:linear-gradient(150deg,#17724f,#0f5238);border-color:#0d4530;
+    box-shadow:0 8px 20px -8px rgba(15,82,56,.75);
+  }
+  .ov-angle .t{font-size:11px;letter-spacing:.5px;color:#a9d6c2;white-space:nowrap}
+  .ov-angle .v{display:flex;align-items:flex-end;gap:3px;line-height:1;white-space:nowrap}
+  .ov-angle .v b{font-size:34px;font-weight:800;letter-spacing:-.8px;color:#fff;font-variant-numeric:tabular-nums}
+  .ov-angle .v i{font-style:normal;font-size:18px;color:#bfe6d3;padding-bottom:3px}
+  .ov-angle .d{font-size:11.5px;color:#a9d6c2;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* ---------- 推荐铣刀 ---------- */
+  .tool-body{display:grid;grid-template-columns:1.1fr 1fr}
+  @media(max-width:860px){
+    .tool-body{grid-template-columns:1fr}
+    .reco{border-left:0;border-top:1px solid var(--line)}
+  }
+  .reco{display:flex;flex-direction:column;min-width:0;border-left:1px solid var(--line);background:#fbfdfc}
+  .reco-h{display:flex;align-items:baseline;gap:8px;padding:10px 14px 7px}
+  .reco-h b{font-size:12.5px;letter-spacing:.3px}
+  .reco-h span{margin-left:auto;font-size:10.8px;color:var(--muted);text-align:right}
+  .reco-list{display:flex;flex-direction:column;gap:6px;padding:0 12px 12px;overflow:auto;max-height:276px}
+  .rr{
+    display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:9px;align-items:center;
+    width:100%;padding:7px 10px;border:1px solid #dfe8ee;border-radius:10px;background:#fff;
+    cursor:pointer;font-family:inherit;text-align:left;color:var(--ink);transition:border-color .14s,background .14s;
+  }
+  .rr:hover{border-color:#a9d2bf;background:#f5fbf8}
+  .rrk{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;
+    background:#e9eef2;color:#5b6d79;font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums}
+  .rr.top .rrk{background:linear-gradient(150deg,#2e9a6a,#17724f);color:#fff}
+  .rrt{min-width:0}
+  .rrt b{font-size:14px;font-weight:800;letter-spacing:-.2px;font-variant-numeric:tabular-nums}
+  .rrt i{font-style:normal;font-size:12px;font-weight:700;color:#2f7a5a;margin-left:5px}
+  .rrt em{display:block;font-style:normal;font-size:10.8px;color:var(--muted);margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rra{text-align:right;line-height:1.15;white-space:nowrap}
+  .rra b{font-size:15px;font-weight:800;color:#0f5238;font-variant-numeric:tabular-nums}
+  .rra em{display:block;font-style:normal;font-size:10px;color:#9aa8b2;margin-top:2px}
+  .rr.cur{border-color:#2e9a6a;background:var(--green-soft)}
+  .rr.cur .rra em{color:#1e7a52;font-weight:700}
+  .reco-empty{margin:0 12px 12px;padding:10px 12px;border-radius:9px;background:var(--amber-soft);
+    color:#8a5410;font-size:11.8px;line-height:1.55}
+
+  /* ================= 移动端适配（≤640px） ================= */
+  @media (max-width:640px){
+    body{background:#eef1f4;font-size:14px;line-height:1.6}
+    .wrap{padding:calc(10px + env(safe-area-inset-top)) 12px calc(28px + env(safe-area-inset-bottom))}
+
+    /* 顶栏 */
+    .topbar{gap:10px;padding:2px 0 12px}
+    .logo{width:44px;height:44px;border-radius:11px}
+    .titles{flex:1;min-width:0}
+    .titles h1{font-size:16px;line-height:1.35;letter-spacing:0}
+    .titles p{display:none}
+    .topbar .tag{display:none}
+
+    /* 卡片与区块 */
+    .stack{gap:12px}
+    .card{border-radius:14px}
+    .card-h{padding:12px 14px;min-height:44px}
+    .card-h h2{font-size:14px}
+    .card-h .hint{font-size:11.5px}
+    .card-b{padding:14px}
+
+    /* 图形：单列、圆角、无溢出 */
+    figure.viz figcaption{padding:12px 14px;min-height:44px;align-items:center;flex-wrap:wrap;gap:4px 8px}
+    figure.viz figcaption b{font-size:14px}
+    figure.viz figcaption span{font-size:11.5px;flex:1 1 100%;text-align:left;margin-left:0}
+    .canvas{padding:4px 4px 8px}
+    .canvas svg{max-width:100%;height:auto}
+
+    /* 图上参数：去掉步进按钮，输入框放大到可触摸尺寸 */
+    .ov{height:44px;border-radius:11px;padding:0 2px;gap:1px}
+    .ov-k{font-size:16px;min-width:16px;padding:0 2px}
+    .ov input{width:56px;height:40px;font-size:16px}
+    .ov-u{display:none}
+    .ov-step{display:none}
+    .ov-angle{height:auto;padding:8px 12px 9px;border-radius:11px}
+    .ov-angle .t{display:none}
+    .ov-angle .v b{font-size:31px}
+    .ov-angle .d{font-size:10.5px}
+
+    /* 推荐铣刀 */
+    .reco-h{padding:10px 12px 6px}
+    .reco-h b{font-size:13px}
+    .reco-list{padding:0 10px 10px;max-height:none;gap:7px}
+    .rr{padding:9px 10px}
+    .rrk{width:24px;height:24px;font-size:12px}
+    .rrt b{font-size:15px}
+    .rrt i{font-size:13px}
+    .rrt em{font-size:11px}
+    .rra b{font-size:16px}
+    .rra em{font-size:10.5px}
+
+    /* 计算说明 */
+    details.formula summary{padding:14px;min-height:48px;font-size:14px}
+    .formula-body{grid-template-columns:1fr;gap:14px;padding:0 14px 14px}
+    .fml div{font-size:14px;padding:7px 0;word-break:break-word}
+    .fml div span{display:block;margin:2px 0 0;font-size:12px;line-height:1.4}
+    .notes{font-size:13.5px;line-height:1.8}
+
+    .foot{margin-top:18px;font-size:12px;padding:0 4px;line-height:1.6}
+  }
+  @media (max-width:360px){
+    .wrap{padding:8px 9px 24px}
+    .titles h1{font-size:15px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3v10" stroke="#eafff5" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M12 13l-4 6h8l-4-6z" fill="#eafff5"/>
+        <circle cx="12" cy="12" r="8.5" stroke="#9fe3c4" stroke-width="1.1" stroke-dasharray="3 2.5"/>
+      </svg>
+    </div>
+    <div class="titles">
+      <h1>天海铣油线计算器</h1>
+      <p>端面椭圆包络近似法</p>
+    </div>
+    <div class="spacer"></div>
+    <div class="tag">角度输出精度 0.01°</div>
+  </div>
+
+  <main class="stack">
+
+    <div class="panels">
+
+    <!-- 目标圆弧槽（置顶） -->
+    <figure class="card viz p-groove">
+      <figcaption><b>① 目标圆弧槽截面</b><span>点击图上数值即可修改 R / h</span></figcaption>
+      <div class="canvas">
+        <svg id="svgGroove" viewBox="0 0 560 400" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="ov" style="left:3%;top:17%">
+          <span class="ov-k">R</span>
+          <input id="inR" type="number" inputmode="decimal" autocomplete="off" enterkeyhint="done" aria-label="待加工圆弧半径R，单位毫米" min="2" max="400" step="0.5" value="27">
+          <span class="ov-u">mm</span>
+          <button class="ov-step" type="button" data-key="R" data-dir="-1" aria-label="减小圆弧半径">−</button>
+          <button class="ov-step" type="button" data-key="R" data-dir="1" aria-label="增大圆弧半径">+</button>
+        </div>
+        <div class="ov" style="right:3%;top:17%">
+          <span class="ov-k">h</span>
+          <input id="inH" type="number" inputmode="decimal" autocomplete="off" enterkeyhint="done" aria-label="铣削深度h，单位毫米" min="0.2" max="60" step="0.1" value="6">
+          <span class="ov-u">mm</span>
+          <button class="ov-step" type="button" data-key="H" data-dir="-1" aria-label="减小铣削深度">−</button>
+          <button class="ov-step" type="button" data-key="H" data-dir="1" aria-label="增大铣削深度">+</button>
+        </div>
+      </div>
+    </figure>
+
+    <!-- 铣刀参数 -->
+    <figure class="card viz p-tool">
+      <figcaption><b>② 铣刀参数</b><span>点击图上数值即可修改 D / r，或从推荐列表选用</span></figcaption>
+      <div class="tool-body">
+        <div class="canvas">
+          <svg id="svgTool" viewBox="0 0 560 340" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="ov" style="left:2%;top:8%">
+            <span class="ov-k">D</span>
+            <input id="inD" type="number" inputmode="decimal" autocomplete="off" enterkeyhint="done" aria-label="铣刀直径D，单位毫米" min="4" max="160" step="0.5" value="40">
+            <span class="ov-u">mm</span>
+            <button class="ov-step" type="button" data-key="D" data-dir="-1" aria-label="减小铣刀直径">−</button>
+            <button class="ov-step" type="button" data-key="D" data-dir="1" aria-label="增大铣刀直径">+</button>
+          </div>
+          <div class="ov" style="right:3%;top:5%">
+            <span class="ov-k">r</span>
+            <input id="inR0" type="number" inputmode="decimal" autocomplete="off" enterkeyhint="done" aria-label="铣刀刀尖圆弧半径r，单位毫米" min="0" max="40" step="0.5" value="2">
+            <span class="ov-u">mm</span>
+            <button class="ov-step" type="button" data-key="rt" data-dir="-1" aria-label="减小刀尖圆弧半径">−</button>
+            <button class="ov-step" type="button" data-key="rt" data-dir="1" aria-label="增大刀尖圆弧半径">+</button>
+          </div>
+        </div>
+        <div class="reco">
+          <div class="reco-h"><b>推荐铣刀</b><span id="recoHint">按适配优先级排序</span></div>
+          <div class="reco-list" id="recoList"></div>
+        </div>
+      </div>
+      </figure>
+
+      <!-- 机头摆动姿态 -->
+      <figure class="card viz p-head">
+        <figcaption><b>③ 机头摆动姿态</b><span>铣头绕水平轴扳转 α</span></figcaption>
+        <div class="canvas">
+          <svg id="svgHead" viewBox="0 0 560 440" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="ov ov-angle" style="right:3%;top:4%">
+            <span class="t">机头搬动角度 α</span>
+            <span class="v"><b id="alphaBig">—</b><i>°</i></span>
+            <span class="d" id="alphaDM">—</span>
+          </div>
+        </div>
+      </figure>
+
+    </div>
+
+      <details class="card formula">
+        <summary><span class="arr">▶</span>计算依据与适用条件</summary>
+        <div class="formula-body">
+          <div class="fml">
+            <div>L = 2·√[ h·(2R − h) ]<span>槽口弓形弦长</span></div>
+            <div>S = ρ − √[ ρ² − (L/2)² ]<span>刀具圆在弦长 L 上的矢高，ρ = D/2</span></div>
+            <div>α = arcsin( h / S )<span>机头摆动角（刀具轴线与铅垂线夹角）</span></div>
+            <div>Δ = max | y<sub>椭圆</sub> − y<sub>R弧</sub> |<span>近似加工最大间隙</span></div>
+          </div>
+          <div class="notes">
+            <b>原理：</b>铣头倾斜 α 后，刀具端面圆在垂直于进给方向的投影为一椭圆（长轴 = 刀具直径 D）。椭圆弧与理论圆弧在槽口两点及槽底最低点三点吻合，故可用小于 2R 的定值刀具近似铣出圆弧槽。<br>
+            <b>适用条件：</b>R &gt; ρ；L &lt; D；h ≤ S（保证 arcsin 有解）；推荐 α ≤ 45°。<br>
+            <b>刀尖圆弧 r：</b>决定槽底实际成形圆角（r 越大槽底越圆滑），并影响端面平底宽度 D−2r；摆动角由刀具半径 ρ = D/2 按端面椭圆包络确定。<br>
+            <b>操作：</b>按图示方向扳转铣头至 α → 锁紧 → 对刀（刀具最低点对至槽底深度 h）→ 沿槽长方向进给。
+          </div>
+        </div>
+      </details>
+  </main>
+
+  <div class="foot">本工具按“浅圆弧槽近似铣削法”几何关系计算 · 实际加工请结合机床刚性、刀具让刀与配合精度要求</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const el = id => document.getElementById(id);
+  const clamp = (v,a,b)=> Math.min(Math.max(v,a), b);
+  const fmt = (v,d=2)=> Number.isFinite(v)? v.toFixed(d) : "—";
+
+  const state = { D:40, rt:2, R:27, H:6 };
+
+  /* 标准立铣刀库（直径 D / 刀尖圆角 r，单位 mm） */
+  const TOOL_LIB = [
+    {D:6,r:0.5},{D:8,r:1},{D:10,r:1},{D:12,r:1.5},{D:14,r:1.5},{D:16,r:2},
+    {D:18,r:2},{D:20,r:2},{D:22,r:2},{D:25,r:2.5},{D:28,r:3},{D:30,r:3},
+    {D:32,r:3},{D:35,r:3},{D:36,r:3},{D:38,r:4},{D:40,r:4},{D:42,r:4},
+    {D:45,r:4},{D:50,r:5},{D:55,r:5},{D:63,r:6},{D:70,r:6},{D:80,r:8}
+  ];
+  const RECO_MAX_ANGLE = 40;   // 推荐工作区上限（°）
+
+  /* ====================== 计算内核 ====================== */
+  function solve(D, rt, R, H){
+    const rho = D/2;
+    const u0 = H*(2*R - H);
+    const L = u0 > 0 ? 2*Math.sqrt(u0) : NaN;
+    const u = L/2;
+    const sq = rho*rho - u*u;
+    const S = (sq >= 0) ? rho - Math.sqrt(sq) : NaN;
+    const alpha = (Number.isFinite(S) && S > 1e-9 && H <= S) ? Math.asin(clamp(H/S,-1,1)) : NaN;
+
+    const msgs = [];
+    if (!(R > rho)) msgs.push(["err", `圆弧半径 R 应大于刀具半径 D/2 = ${fmt(rho)} mm，需换用更小直径刀具`]);
+    if (!(Number.isFinite(L)) || L >= D) msgs.push(["err", `槽口弦长 L = ${fmt(L)} mm 已不小于刀具直径 D，无法一次包络成形`]);
+    if (!(Number.isFinite(S))) msgs.push(["err", `刀具半径不足以覆盖弦长 L/2，请增大刀具直径`]);
+    else if (H > S) msgs.push(["err", `槽深 h = ${fmt(H)} mm 超过刀具可达矢高 S = ${fmt(S)} mm，需增大 D 或减小 h`]);
+    if (!(H < R)) msgs.push(["err", `本方法适用于浅圆弧槽，需 h < R`]);
+    if (!(rt < rho)) msgs.push(["err", `刀尖圆弧半径 r 必须小于刀具半径 D/2 = ${fmt(rho)} mm`]);
+
+    const valid = !msgs.some(m=>m[0]==="err");
+    if (valid && Number.isFinite(alpha) && alpha*180/Math.PI > 45)
+      msgs.push(["warn", `摆动角 ${fmt(alpha*180/Math.PI)}° 大于 45°，机床刚性与让刀不利，建议选更小直径刀具`]);
+    if (valid) msgs.unshift(["ok", "参数在公式适用范围内，可按下图姿态扳转铣头"]);
+
+    // 包络椭圆与最大间隙
+    let b=NaN, yc=NaN, dmax=NaN, xdmax=0;
+    if (valid && Number.isFinite(alpha)){
+      b = rho*Math.sin(alpha);
+      yc = H - b;
+      dmax = 0;
+      const N = 240;
+      for (let i=0;i<=N;i++){
+        const x = -u + 2*u*i/N;
+        const ye = yc + b*Math.sqrt(Math.max(0, 1-(x/rho)*(x/rho)));
+        const ya = (H-R) + Math.sqrt(Math.max(0, R*R - x*x));
+        const d = ye - ya;
+        if (d > dmax){ dmax = d; xdmax = x; }
+      }
+    }
+    return { D,rt,R,H,rho,L,u,S,alpha,valid,msgs,b,yc,dmax,xdmax };
+  }
+  function calc(){ return solve(state.D, state.rt, state.R, state.H); }
+
+  /* ====================== 结果与状态 ====================== */
+  function updateResult(r){
+    const okA = Number.isFinite(r.alpha);
+    el("alphaBig").textContent = okA ? (r.alpha*180/Math.PI).toFixed(2) : "—";
+    if (okA){
+      const deg = r.alpha*180/Math.PI;
+      const d = Math.floor(deg), m = (deg-d)*60;
+      el("alphaDM").innerHTML = `<b>${d}°${m.toFixed(1)}′</b>`;
+    } else {
+      el("alphaDM").textContent = "参数超限，无解";
+    }
+  }
+
+  /* ====================== 推荐铣刀 ====================== */
+  // 对刀库逐把校验：几何可行 + 摆角在推荐工作区，再按“贴合精度 60% + 摆角余量 20% + 切削效率 20%”排序
+  function recommend(R, H){
+    if (!(R > 0) || !(H > 0) || !(H < R)) return { list: [], badArc: true };
+    const list = [];
+    TOOL_LIB.forEach(t=>{
+      const res = solve(t.D, t.r, R, H);
+      if (!res.valid || !Number.isFinite(res.alpha)) return;
+      const aDeg = res.alpha*180/Math.PI;
+      if (aDeg > RECO_MAX_ANGLE) return;
+      list.push({ D:t.D, r:t.r, res, aDeg });
+    });
+    if (!list.length) return { list, badArc: false };
+    const ds = list.map(c=>c.D);
+    const dMin = Math.min(...ds), dMax = Math.max(...ds);
+    list.forEach(c=>{
+      const qAcc = clamp(1 - c.res.dmax/(0.25*H), 0, 1);
+      const qAng = clamp((45 - c.aDeg)/25, 0, 1);
+      const qEff = dMax > dMin ? (c.D - dMin)/(dMax - dMin) : 1;
+      c.score = 0.6*qAcc + 0.2*qAng + 0.2*qEff;
+    });
+    list.sort((a,b)=> b.score - a.score || a.aDeg - b.aDeg || b.D - a.D);
+    return { list, badArc: false };
+  }
+
+  function renderReco(){
+    const box = el("recoList"), hint = el("recoHint");
+    const { list, badArc } = recommend(state.R, state.H);
+    if (!list.length){
+      hint.textContent = "无匹配";
+      box.innerHTML = `<div class="reco-empty">${badArc
+        ? "目标圆弧参数超出本方法适用范围（需 h < R），无法生成推荐"
+        : `标准铣刀库中暂无摆角 ≤ ${RECO_MAX_ANGLE}° 的匹配刀具，可点击图上数值手动输入刀具参数`}</div>`;
+      return;
+    }
+    hint.textContent = `共 ${list.length} 款 · 贴合优先 · ≤ ${RECO_MAX_ANGLE}°`;
+    const keepTop = box.scrollTop;
+    box.innerHTML = list.map((c,i)=>{
+      const sameD = Math.abs(state.D - c.D) < 1e-6;
+      const sameAll = sameD && Math.abs(state.rt - c.r) < 1e-6;
+      const cls = "rr" + (i===0 ? " top" : "") + (sameD ? " cur" : "");
+      const flat = fmt(Math.max(0, c.D - 2*c.r), 1);
+      const tip = sameAll ? "当前参数" : (sameD ? "当前直径" : "点击选用");
+      return `<button class="${cls}" type="button" data-d="${c.D}" data-r="${c.r}"
+          aria-label="选用 Ø${c.D} 铣刀，刀尖圆角 ${c.r}，摆角 ${c.aDeg.toFixed(2)} 度">
+        <span class="rrk">${i+1}</span>
+        <span class="rrt"><b>Ø${c.D}</b><i>r${c.r}</i>
+          <em>平底 ${flat} mm · 最大间隙 Δ ${c.res.dmax.toFixed(3)} mm</em></span>
+        <span class="rra"><b>${c.aDeg.toFixed(2)}°</b><em>${tip}</em></span>
+      </button>`;
+    }).join("");
+    box.scrollTop = keepTop;
+  }
+
+  /* ====================== SVG 工具函数 ====================== */
+  function defs(p, hatch){
+    return `<defs>
+      <marker id="${p}ar" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 Z" fill="#c47a1c"/></marker>
+      <marker id="${p}gr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 Z" fill="#1e7a52"/></marker>
+      <pattern id="${p}hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="7" stroke="#c3cfd9" stroke-width="1.5"/></pattern>
+      <marker id="${p}dot" viewBox="0 0 6 6" refX="3" refY="3" markerWidth="5" markerHeight="5">
+        <circle cx="3" cy="3" r="2.4" fill="#c47a1c"/></marker>
+    </defs>`;
+  }
+  function polyline(pts, cls, extra=""){
+    if (!pts.length) return "";
+    const d = pts.map((p,i)=> (i?"L":"M")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+    return `<path d="${d}" class="${cls}" ${extra}/>`;
+  }
+
+  /* ====================== ① 机头摆动姿态图 ====================== */
+  function drawHead(r){
+    const W=560, HH=440;
+    const a = Number.isFinite(r.alpha) ? r.alpha : 0;
+    const aDeg = a*180/Math.PI;
+    const pv = { x: 232, y: 96 };
+    const drop = 214;                      // 枢轴 → 工件表面 垂直距离
+    const surfY = pv.y + drop;             // 310
+    const tLen = drop/Math.cos(a);         // 沿刀具轴线的长度
+    const tipX = pv.x + drop*Math.tan(a);
+    const tw = 20;                         // 刀具示意宽度
+    let s = defs("h", true);
+
+    // 立柱 / 底座 / 工作台
+    s += `<rect x="44" y="58" width="62" height="${surfY+76-58}" rx="8" class="mach"/>`;
+    s += `<rect x="30" y="${surfY+76}" width="516" height="15" rx="5" class="machDark"/>`;
+    s += `<rect x="118" y="${surfY+18}" width="412" height="58" rx="7" class="mach"/>`;
+    s += `<rect x="118" y="${surfY+18}" width="412" height="10" rx="4" fill="#cdd9e2"/>`;
+    // 工件
+    const wx0 = 150, wx1 = 512;
+    s += `<rect x="${wx0}" y="${surfY}" width="${wx1-wx0}" height="18" fill="url(#hhatch)" stroke="#aab8c3" stroke-width="1.1"/>`;
+    s += `<text x="${wx0+8}" y="${surfY+14}" class="cap">工件</text>`;
+    s += `<text x="128" y="${surfY+66}" class="cap">工作台</text>`;
+    // 槽口（示意）
+    s += `<path d="M${tipX-20},${surfY} Q${tipX},${surfY+13} ${tipX+20},${surfY}" fill="#fff" stroke="#1e7a52" stroke-width="1.8"/>`;
+
+    // 铅垂参考线
+    s += `<line x1="${pv.x}" y1="${pv.y}" x2="${pv.x}" y2="${surfY-4}" class="refLine"/>`;
+    s += `<text x="${pv.x-9}" y="${surfY-10}" class="cap" text-anchor="end">铅垂线</text>`;
+
+    // 摆动角度弧
+    if (aDeg > 0.4){
+      const R0 = 92;
+      const p0 = { x: pv.x, y: pv.y + R0 };
+      const p1 = { x: pv.x + R0*Math.sin(a), y: pv.y + R0*Math.cos(a) };
+      s += `<path d="M${p0.x.toFixed(1)},${p0.y.toFixed(1)} A${R0},${R0} 0 0 1 ${p1.x.toFixed(1)},${p1.y.toFixed(1)}" class="arcAngle" marker-end="url(#har)"/>`;
+      const la = a/2;
+      const lx = pv.x + (R0+40)*Math.sin(la) + 10;
+      const ly = pv.y + (R0+40)*Math.cos(la);
+      s += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" fill="#0f5238"
+              font-size="15" font-weight="800">α</text>`;
+    }
+
+    // 旋转铣头组
+    s += `<g transform="rotate(${(-aDeg).toFixed(3)} ${pv.x} ${pv.y})">`;
+    s += `<rect x="${pv.x-52}" y="${pv.y-10}" width="104" height="104" rx="13" class="headBody"/>`;
+    s += `<rect x="${pv.x-52}" y="${pv.y-10}" width="104" height="26" rx="12" class="headTop"/>`;
+    s += `<circle cx="${pv.x}" cy="${pv.y+46}" r="15" fill="#1d6a4b" stroke="#14503a" stroke-width="1.2"/>`;
+    s += `<circle cx="${pv.x}" cy="${pv.y+46}" r="5" fill="#bfe6d3"/>`;
+    s += `<rect x="${pv.x-24}" y="${pv.y+92}" width="48" height="30" rx="4" class="spindle"/>`;
+    s += `<rect x="${pv.x-16}" y="${pv.y+120}" width="32" height="26" rx="3" class="holder"/>`;
+    // 刀具
+    const tTop = pv.y + 144;
+    const tBot = pv.y + tLen;
+    s += `<rect x="${pv.x-tw/2}" y="${tTop}" width="${tw}" height="${Math.max(6,tBot-tTop-3)}" class="toolBody"/>`;
+    for (let k=0;k<4;k++){
+      const yy = tTop + 16 + k*(Math.max(10,(tBot-tTop-24))/4);
+      s += `<line x1="${pv.x-tw/2+3}" y1="${yy}" x2="${pv.x+tw/2-3}" y2="${yy+9}" class="toolFlute"/>`;
+    }
+    s += `</g>`;
+
+    // 刀轴标签
+    const ay = pv.y + drop*0.74;
+    const ax = pv.x + (ay - pv.y)*Math.tan(a) - 18;
+    s += `<text x="${ax.toFixed(1)}" y="${(ay+4).toFixed(1)}" class="lbl" text-anchor="end">刀具轴线</text>`;
+
+    // 工件表面基线
+    s += `<line x1="60" y1="${surfY}" x2="536" y2="${surfY}" stroke="#8fa2ae" stroke-width="1.2"/>`;
+
+    el("svgHead").innerHTML = s;
+  }
+
+  /* ====================== ② 铣刀参数图 ====================== */
+  function drawTool(r){
+    const D = r.D, rt = Math.min(r.rt, D/2);
+    const W=560, HH=340;
+    const cx = 236;
+    const wpx = 112;                                  // 视觉宽度（示意）
+    const yTop = 46, yShankEnd = 116, yTip = 268;     // 关键高度
+    const rr = clamp((rt/D)*wpx, 2, wpx*0.34);        // 刀尖圆角视觉半径
+    const xL = cx - wpx/2, xR = cx + wpx/2;
+    let s = defs("t", true);
+
+    // 刀柄
+    s += `<rect x="${cx-wpx*0.34}" y="${yTop}" width="${wpx*0.68}" height="${yShankEnd-yTop}" rx="4"
+            fill="#b7c4cf" stroke="#93a5b3" stroke-width="1.2"/>`;
+    s += `<text x="${cx+wpx*0.5+12}" y="${yTop+34}" class="lbl">刀柄</text>`;
+
+    // 刀体 + 圆角底
+    s += `<path d="M${xL},${yShankEnd} L${xL},${yTip-rr} A${rr},${rr} 0 0 0 ${xL+rr},${yTip}
+            L${xR-rr},${yTip} A${rr},${rr} 0 0 0 ${xR},${yTip-rr} L${xR},${yShankEnd} Z"
+            class="toolBody"/>`;
+    // 螺旋刃（示意）
+    for (let k=0;k<5;k++){
+      const x = xL + 10 + k*(wpx-20)/4;
+      s += `<path d="M${x},${yShankEnd+6} Q${x+13},${yShankEnd+70} ${x-6},${yTip-6}" class="toolFlute" fill="none"/>`;
+    }
+    s += `<text x="${cx+wpx*0.5+12}" y="${yShankEnd+40}" class="lbl">刀体</text>`;
+
+    // 直径 D 尺寸
+    s += `<line x1="${xL}" y1="${yTip+16}" x2="${xL}" y2="${yTip+44}" class="extLine"/>`;
+    s += `<line x1="${xR}" y1="${yTip+16}" x2="${xR}" y2="${yTip+44}" class="extLine"/>`;
+    s += `<line x1="${xL}" y1="${yTip+34}" x2="${xR}" y2="${yTip+34}" class="dimLine"
+            marker-start="url(#tar)" marker-end="url(#tar)"/>`;
+    s += `<text x="${cx}" y="${yTip+30}" text-anchor="middle" class="dimText">D</text>`;
+
+    // 平底宽度
+    const fL = xL + rr, fR = xR - rr;
+    s += `<line x1="${fL}" y1="${yTip+2}" x2="${fL}" y2="${yTip-14}" class="extLine"/>`;
+    s += `<line x1="${fR}" y1="${yTip+2}" x2="${fR}" y2="${yTip-14}" class="extLine"/>`;
+    s += `<line x1="${fL}" y1="${yTip-8}" x2="${fR}" y2="${yTip-8}" class="dimLine"
+            marker-start="url(#tar)" marker-end="url(#tar)"/>`;
+    s += `<text x="${(fL+fR)/2}" y="${yTip-13}" text-anchor="middle" class="dimText"
+            style="font-size:11.5px">平底 ${fmt(Math.max(0,D-2*rt),1)}</text>`;
+
+    // 刀尖圆弧引线
+    const cornerX = xL+rr, cornerY = yTip-rr;
+    s += `<line x1="${xL+2}" y1="${yTip-2}" x2="${xL-26}" y2="${yTip+22}" class="extLine"/>`;
+    s += `<text x="${xL-30}" y="${yTip+30}" text-anchor="end" class="dimText">r</text>`;
+
+    // 圆角放大图
+    const bx=362, by=104, bw=176, bh=196;
+    s += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="9" class="tbRect"/>`;
+    s += `<text x="${bx+12}" y="${by+20}" class="tbText" font-weight="700">刀尖圆弧放大</text>`;
+    const ox = bx+58, oy = by+150;          // 角点
+    const mag = 60;                         // 放大后的圆角半径（示意）
+    // 角部：左立边 + 底平边 + 圆角
+    s += `<path d="M${ox},${oy+38} L${ox},${oy-mag} A${mag},${mag} 0 0 0 ${ox+mag},${oy} L${ox+96},${oy}"
+            fill="none" stroke="#a88c50" stroke-width="2.6"/>`;
+    s += `<rect x="${ox}" y="${oy-mag}" width="${mag}" height="${mag}" fill="none"
+            stroke="#d3dde5" stroke-dasharray="3 3"/>`;
+    s += `<line x1="${ox}" y1="${oy-mag}" x2="${ox+mag}" y2="${oy-mag}" stroke="#c9d5de" stroke-width="1"/>`;
+    s += `<line x1="${ox+mag}" y1="${oy-mag}" x2="${ox+mag}" y2="${oy}" stroke="#c9d5de" stroke-width="1"/>`;
+    s += `<circle cx="${ox+mag}" cy="${oy-mag}" r="2.6" fill="#c47a1c"/>`;
+    s += `<line x1="${ox+mag}" y1="${oy-mag}" x2="${ox+mag*0.3}" y2="${oy-mag*0.3}" class="dimLine"
+            marker-end="url(#tar)"/>`;
+    s += `<text x="${ox+mag*0.52}" y="${oy-mag*0.66}" class="dimText"
+            style="font-size:12px">r</text>`;
+    s += `<text x="${ox+mag+10}" y="${oy-mag+4}" class="lbl">圆心</text>`;
+    s += `<text x="${bx+bw-12}" y="${by+20}" text-anchor="end" class="cap">单位 mm</text>`;
+
+    el("svgTool").innerHTML = s;
+  }
+
+  /* ====================== ③ 圆弧槽截面图 ====================== */
+  function drawGroove(r){
+    const W=560, HH=400;
+    const { R, H, u, rho } = r;
+    const okA = Number.isFinite(r.alpha);
+    const L = Number.isFinite(r.L) ? r.L : 2*u;
+    let s = defs("g", true);
+
+    // 比例与基准
+    const sPx = Math.min((W-200)/Math.max(L,1), (HH-150)/Math.max(R,1));
+    const surfY = 44 + (R-H)*sPx;
+    const cx = W/2;
+    const X = mm => cx + mm*sPx;
+    const Y = mm => surfY + mm*sPx;
+
+    // 工件块
+    s += `<rect x="18" y="${surfY}" width="${W-36}" height="${HH-surfY-22}" fill="url(#ghatch)"
+            stroke="#aab8c3" stroke-width="1.1"/>`;
+
+    // 理论 R 弧采样
+    const ptsArc = [];
+    for (let i=0;i<=80;i++){
+      const x = -u + 2*u*i/80;
+      ptsArc.push([X(x), Y((H-R)+Math.sqrt(Math.max(0,R*R-x*x)))]);
+    }
+    // 包络椭圆采样
+    const ptsEll = [];
+    if (okA){
+      for (let i=0;i<=80;i++){
+        const x = -u + 2*u*i/80;
+        const y = r.yc + r.b*Math.sqrt(Math.max(0,1-(x/rho)*(x/rho)));
+        ptsEll.push([X(x), Y(y)]);
+      }
+    }
+
+    // 槽腔：先按椭圆（实际切除）填浅红，再按 R 弧填白 → 余下为过切区
+    if (okA && ptsEll.length){
+      s += `<path d="${ptsEll.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")} L${X(u).toFixed(1)},${surfY.toFixed(1)} L${X(-u).toFixed(1)},${surfY.toFixed(1)} Z" class="voidRed"/>`;
+    }
+    s += `<path d="${ptsArc.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")} L${X(u).toFixed(1)},${surfY.toFixed(1)} L${X(-u).toFixed(1)},${surfY.toFixed(1)} Z" class="voidWhite"/>`;
+
+    // 表面线
+    s += `<line x1="18" y1="${surfY}" x2="${W-18}" y2="${surfY}" stroke="#7f929f" stroke-width="1.4"/>`;
+
+    // 曲线
+    if (okA && ptsEll.length) s += polyline(ptsEll, "strokeAmber");
+    s += polyline(ptsArc, "strokeGreen");
+
+    // ---- 尺寸：弦长 L ----
+    const dimY = surfY - 30;
+    s += `<line x1="${X(-u)}" y1="${Y(0)-2}" x2="${X(-u)}" y2="${dimY-8}" class="extLine"/>`;
+    s += `<line x1="${X(u)}" y1="${Y(0)-2}" x2="${X(u)}" y2="${dimY-8}" class="extLine"/>`;
+    s += `<line x1="${X(-u)}" y1="${dimY}" x2="${X(u)}" y2="${dimY}" class="dimLine"
+            marker-start="url(#gar)" marker-end="url(#gar)"/>`;
+    s += `<text x="${cx}" y="${dimY-7}" text-anchor="middle" class="dimText">L = ${fmt(L)}</text>`;
+    s += `<text x="${X(-u)-6}" y="${surfY-6}" text-anchor="end" class="cap">C</text>`;
+    s += `<text x="${X(u)+6}" y="${surfY-6}" class="cap">C′</text>`;
+    s += `<text x="${cx+6}" y="${Y(H)+14}" class="cap">A</text>`;
+
+    // ---- 尺寸：槽深 h ----
+    const hx = X(u) + 54;
+    s += `<line x1="${X(u)}" y1="${surfY}" x2="${hx+8}" y2="${surfY}" class="extLine"/>`;
+    s += `<line x1="${X(0)}" y1="${Y(H)}" x2="${hx+8}" y2="${Y(H)}" class="extLine"/>`;
+    s += `<line x1="${hx}" y1="${surfY}" x2="${hx}" y2="${Y(H)}" class="dimLine"
+            marker-start="url(#gar)" marker-end="url(#gar)"/>`;
+    s += `<text x="${hx-6}" y="${(surfY+Y(H))/2+4}" text-anchor="end" class="dimText">h</text>`;
+
+    // ---- 尺寸：R 半径引线 ----
+    const cy = Y(H-R);
+    const xr = -0.5*u, yr = (H-R) + Math.sqrt(Math.max(0,R*R-xr*xr));
+    s += `<circle cx="${X(0)}" cy="${cy}" r="3.4" class="centerDot"/>`;
+    s += `<text x="${X(0)-7}" y="${cy-8}" text-anchor="end" class="cap">O</text>`;
+    s += `<line x1="${X(0)}" y1="${cy}" x2="${X(xr)}" y2="${Y(yr)}" stroke="#1e7a52" stroke-width="1.2"
+            stroke-dasharray="5 4" marker-end="url(#ggr)"/>`;
+    s += `<text x="${(X(0)+X(xr))/2+7}" y="${(cy+Y(yr))/2}" class="dimText" style="fill:#1e7a52">R</text>`;
+
+    // ---- 最大近似间隙 Δ ----
+    if (okA && Number.isFinite(r.dmax) && r.dmax > 0.002){
+      const xd = clamp(r.xdmax, -u*0.99, u*0.99);
+      const ye = r.yc + r.b*Math.sqrt(Math.max(0,1-(xd/rho)*(xd/rho)));
+      const ya = (H-R) + Math.sqrt(Math.max(0,R*R-xd*xd));
+      const px = X(xd);
+      s += `<line x1="${px}" y1="${Y(ya)}" x2="${px}" y2="${Y(ye)}" stroke="#bf3b2e" stroke-width="1.4"
+              marker-start="url(#gar)" marker-end="url(#gar)"/>`;
+      s += `<text x="${px+7}" y="${Y((ya+ye)/2)+4}" class="dimText" style="fill:#a8332a">Δ=${r.dmax.toFixed(3)}</text>`;
+    }
+
+    // ---- 图例 ----
+    const ly = 22;
+    s += `<line x1="28" y1="${ly}" x2="52" y2="${ly}" class="strokeGreen"/>`;
+    s += `<text x="58" y="${ly+4}" class="lbl">理论圆弧 R</text>`;
+    if (okA){
+      s += `<line x1="150" y1="${ly}" x2="174" y2="${ly}" class="strokeAmber"/>`;
+      s += `<text x="180" y="${ly+4}" class="lbl">刀具包络（椭圆）</text>`;
+      s += `<rect x="310" y="${ly-7}" width="14" height="10" class="voidRed" stroke="#e6c4bf"/>`;
+      s += `<text x="330" y="${ly+4}" class="lbl">近似过切区</text>`;
+    }
+
+    // ---- 槽底圆角注记 ----
+    s += `<text x="${W-24}" y="${HH-14}" text-anchor="end" class="cap">槽底实际圆角 ≈ r = ${fmt(r.rt,1)} mm</text>`;
+    if (!okA) s += `<text x="${cx}" y="${surfY-70}" text-anchor="middle" class="warnBig">参数超限，无法生成包络</text>`;
+
+    el("svgGroove").innerHTML = s;
+  }
+
+  /* ====================== 渲染总入口 ====================== */
+  function render(){
+    const r = calc();
+    updateResult(r);
+    renderReco();
+    drawHead(r);
+    drawTool(r);
+    drawGroove(r);
+  }
+
+  /* ====================== 输入绑定（图上内嵌） ====================== */
+  const bindings = [["D","inD"],["rt","inR0"],["R","inR"],["H","inH"]];
+  bindings.forEach(([key, id])=>{
+    const inp = el(id);
+    inp.addEventListener("input", ()=>{
+      const v = parseFloat(inp.value);
+      if (!Number.isFinite(v) || v < 0) return;
+      state[key] = v;
+      render();
+    });
+    inp.addEventListener("blur", ()=>{
+      const v = clamp(state[key], parseFloat(inp.min), parseFloat(inp.max));
+      state[key] = v;
+      inp.value = v;
+      render();
+    });
+  });
+
+  /* 步进按钮 */
+  document.querySelectorAll(".ov-step").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const key = btn.dataset.key, dir = +btn.dataset.dir;
+      const inp = btn.parentElement.querySelector("input");
+      const stepV = parseFloat(inp.step) || 1;
+      const v = clamp((+state[key] || 0) + dir*stepV, parseFloat(inp.min), parseFloat(inp.max));
+      state[key] = Math.round(v*1000)/1000;
+      inp.value = state[key];
+      render();
+    });
+  });
+
+  /* 推荐列表选用：回填 D / r，摆角随 D 自动重算 */
+  el("recoList").addEventListener("click", e=>{
+    const btn = e.target.closest(".rr");
+    if (!btn) return;
+    state.D = parseFloat(btn.dataset.d);
+    state.rt = parseFloat(btn.dataset.r);
+    el("inD").value = state.D;
+    el("inR0").value = state.rt;
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
